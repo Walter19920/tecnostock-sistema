@@ -555,3 +555,10 @@ EXEC sp_RegistrarProducto
     @stock_inicial = 2, 
     @id_usuario = 1;
 GO
+
+
+
+UPDATE Usuarios 
+SET password_hash = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'
+WHERE username = 'admin';
+GO
