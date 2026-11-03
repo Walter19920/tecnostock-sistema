@@ -78,7 +78,7 @@ def login(data: LoginRequest) -> TokenResponse:
     usuario_out = UsuarioOut(
         id_usuario=usuario["id_usuario"],
         username=usuario["username"],
-        nombre=usuario["nombre"],
+        nombre=usuario.get("nombre") or usuario.get("nombre_completo", ""),
         rol=usuario["rol"],
     )
 

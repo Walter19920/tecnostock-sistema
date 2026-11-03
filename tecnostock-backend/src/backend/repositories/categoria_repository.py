@@ -17,20 +17,10 @@ def registrar_categoria(
 ) -> dict:
     """
     Registra una nueva categoría.
-
-    SP invocado: sp_RegistrarCategoria
-
-    Args:
-        conn:        Conexión activa a SQL Server.
-        nombre:      Nombre de la categoría.
-        descripcion: Descripción opcional.
-
-    Returns:
-        dict con los datos de la categoría recién creada.
     """
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC sp_RegistrarCategoria @Nombre = ?, @Descripcion = ?",
+        "EXEC sp_RegistrarCategoria @nombre = ?, @descripcion = ?",
         (nombre, descripcion),
     )
     row = cursor.fetchone()
@@ -42,14 +32,6 @@ def registrar_categoria(
 def listar_categorias(conn: pyodbc.Connection) -> list[dict]:
     """
     Retorna todas las categorías activas.
-
-    SP invocado: sp_ListarCategorias
-
-    Args:
-        conn: Conexión activa a SQL Server.
-
-    Returns:
-        Lista de dicts con los datos de cada categoría.
     """
     cursor = conn.cursor()
     cursor.execute("EXEC sp_ListarCategorias")
@@ -65,27 +47,20 @@ def actualizar_categoria(
     id_categoria: int,
     nombre: str,
     descripcion: str | None,
+    activo: bool = True,
 ) -> dict:
     """
     Actualiza los datos de una categoría existente.
-
-    SP invocado: sp_ActualizarCategoria
-
-    Args:
-        conn:         Conexión activa a SQL Server.
-        id_categoria: ID de la categoría a actualizar.
-        nombre:       Nuevo nombre.
-        descripcion:  Nueva descripción (opcional).
-
-    Returns:
-        dict con los datos actualizados de la categoría.
     """
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC sp_ActualizarCategoria @IdCategoria = ?, @Nombre = ?, @Descripcion = ?",
-        (id_categoria, nombre, descripcion),
+        "EXEC sp_ActualizarCategoria @id_categoria = ?, @nombre = ?, @descripcion = ?, @activo = ?",
+        (id_categoria, nombre, descripcion, 1 if activo else 0),
     )
-    row = cursor.fetchone()
     conn.commit()
-    columns = [col[0] for col in cursor.description]
-    return dict(zip(columns, row))
+    return {
+        "id_categoria": id_categoria,
+        "nombre": nombre,
+        "descripcion": descripcion,
+        "activo": activo,
+    }

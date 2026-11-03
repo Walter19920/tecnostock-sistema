@@ -14,36 +14,37 @@ import pyodbc
 
 def registrar_producto(
     conn: pyodbc.Connection,
+    codigo: str,
     nombre: str,
     descripcion: str | None,
     id_categoria: int,
-    precio_unitario: float,
-    stock_actual: int,
+    precio_compra: float,
+    precio_venta: float,
     stock_minimo: int,
+    stock_inicial: int = 0,
+    id_usuario: int | None = None,
 ) -> dict:
     """
     Registra un nuevo producto en el inventario.
-
     SP invocado: sp_RegistrarProducto
-
-    Args:
-        conn:            Conexión activa a SQL Server.
-        nombre:          Nombre del producto.
-        descripcion:     Descripción opcional.
-        id_categoria:    ID de la categoría a la que pertenece.
-        precio_unitario: Precio unitario del producto.
-        stock_actual:    Cantidad inicial en stock.
-        stock_minimo:    Stock mínimo permitido antes de alerta.
-
-    Returns:
-        dict con los datos del producto recién creado.
     """
     cursor = conn.cursor()
     cursor.execute(
         """EXEC sp_RegistrarProducto
-            @Nombre = ?, @Descripcion = ?, @IdCategoria = ?,
-            @PrecioUnitario = ?, @StockActual = ?, @StockMinimo = ?""",
-        (nombre, descripcion, id_categoria, precio_unitario, stock_actual, stock_minimo),
+            @codigo = ?, @nombre = ?, @descripcion = ?, @id_categoria = ?,
+            @precio_compra = ?, @precio_venta = ?, @stock_minimo = ?,
+            @stock_inicial = ?, @id_usuario = ?""",
+        (
+            codigo,
+            nombre,
+            descripcion,
+            id_categoria,
+            precio_compra,
+            precio_venta,
+            stock_minimo,
+            stock_inicial,
+            id_usuario,
+        ),
     )
     row = cursor.fetchone()
     conn.commit()
@@ -53,33 +54,35 @@ def registrar_producto(
 
 def listar_productos_paginado(
     conn: pyodbc.Connection,
-    pagina: int,
-    tamanio_pagina: int,
+    pagina: int = 1,
+    tamanio_pagina: int = 10,
     busqueda: str | None = None,
+    id_categoria: int | None = None,
+    activo: bool | None = True,
 ) -> tuple[list[dict], int]:
     """
-    Obtiene una página de productos con filtro de búsqueda opcional.
-
+    Obtiene una página de productos con filtros opcionales.
     SP invocado: sp_ListarProductosPaginado
-
-    Args:
-        conn:           Conexión activa a SQL Server.
-        pagina:         Número de página (base 1).
-        tamanio_pagina: Cantidad de registros por página.
-        busqueda:       Texto de búsqueda por nombre (opcional).
-
-    Returns:
-        Tupla (lista de dicts de productos, total_registros).
     """
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC sp_ListarProductosPaginado @Pagina = ?, @TamanioPagina = ?, @Busqueda = ?",
-        (pagina, tamanio_pagina, busqueda),
+        """EXEC sp_ListarProductosPaginado 
+            @busqueda = ?, @id_categoria = ?, @activo = ?, @pagina = ?, @tamanio_pagina = ?""",
+        (
+            busqueda,
+            id_categoria,
+            1 if activo is True else (0 if activo is False else None),
+            pagina,
+            tamanio_pagina,
+        ),
     )
     rows = cursor.fetchall()
+    if not rows:
+        return [], 0
+
     columns = [col[0] for col in cursor.description]
     items = [dict(zip(columns, row)) for row in rows]
-    total_registros = items[0].get("total_registros", 0) if items else 0
+    total_registros = items[0].get("total_registros", len(items))
     return items, total_registros
 
 
@@ -89,19 +92,11 @@ def obtener_producto_por_id(
 ) -> dict | None:
     """
     Obtiene un producto por su ID.
-
     SP invocado: sp_ObtenerProductoPorId
-
-    Args:
-        conn:        Conexión activa a SQL Server.
-        id_producto: ID del producto a buscar.
-
-    Returns:
-        dict con los datos del producto, o None si no existe.
     """
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC sp_ObtenerProductoPorId @IdProducto = ?",
+        "EXEC sp_ObtenerProductoPorId @id_producto = ?",
         (id_producto,),
     )
     row = cursor.fetchone()
@@ -114,64 +109,48 @@ def obtener_producto_por_id(
 def actualizar_producto(
     conn: pyodbc.Connection,
     id_producto: int,
+    codigo: str,
     nombre: str,
     descripcion: str | None,
     id_categoria: int,
-    precio_unitario: float,
+    precio_compra: float,
+    precio_venta: float,
     stock_minimo: int,
-) -> dict:
+) -> None:
     """
     Actualiza los datos de un producto existente.
-
     SP invocado: sp_ActualizarProducto
-
-    Args:
-        conn:            Conexión activa a SQL Server.
-        id_producto:     ID del producto a actualizar.
-        nombre:          Nuevo nombre.
-        descripcion:     Nueva descripción (opcional).
-        id_categoria:    Nueva categoría.
-        precio_unitario: Nuevo precio unitario.
-        stock_minimo:    Nuevo stock mínimo.
-
-    Returns:
-        dict con los datos actualizados del producto.
     """
     cursor = conn.cursor()
     cursor.execute(
         """EXEC sp_ActualizarProducto
-            @IdProducto = ?, @Nombre = ?, @Descripcion = ?,
-            @IdCategoria = ?, @PrecioUnitario = ?, @StockMinimo = ?""",
-        (id_producto, nombre, descripcion, id_categoria, precio_unitario, stock_minimo),
+            @id_producto = ?, @codigo = ?, @nombre = ?, @descripcion = ?,
+            @id_categoria = ?, @precio_compra = ?, @precio_venta = ?, @stock_minimo = ?""",
+        (
+            id_producto,
+            codigo,
+            nombre,
+            descripcion,
+            id_categoria,
+            precio_compra,
+            precio_venta,
+            stock_minimo,
+        ),
     )
-    row = cursor.fetchone()
     conn.commit()
-    columns = [col[0] for col in cursor.description]
-    return dict(zip(columns, row))
 
 
 def desactivar_producto(
     conn: pyodbc.Connection,
     id_producto: int,
-) -> dict:
+) -> None:
     """
     Desactiva (baja lógica) un producto del inventario.
-
     SP invocado: sp_DesactivarProducto
-
-    Args:
-        conn:        Conexión activa a SQL Server.
-        id_producto: ID del producto a desactivar.
-
-    Returns:
-        dict con mensaje de confirmación retornado por el SP.
     """
     cursor = conn.cursor()
     cursor.execute(
-        "EXEC sp_DesactivarProducto @IdProducto = ?",
+        "EXEC sp_DesactivarProducto @id_producto = ?",
         (id_producto,),
     )
-    row = cursor.fetchone()
     conn.commit()
-    columns = [col[0] for col in cursor.description]
-    return dict(zip(columns, row))
