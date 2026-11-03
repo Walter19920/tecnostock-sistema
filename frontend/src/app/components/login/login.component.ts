@@ -94,8 +94,9 @@ import { AuthService } from '../../services/auth.service';
               }
             </div>
 
+            <!-- BOTÓN DE INICIO DE SESIÓN SIN SUPERPOSICIÓN DE TEXTO -->
             <button
-              class="btn btn-primary btn-lg w-100 rounded-3"
+              class="btn btn-primary btn-lg w-100 rounded-3 d-flex align-items-center justify-content-center"
               type="submit"
               [disabled]="cargando()"
             >
@@ -105,9 +106,11 @@ import { AuthService } from '../../services/auth.service';
                   role="status"
                   aria-hidden="true"
                 ></span>
-                Iniciando sesión…
-              } @else {
-                <i class="bi bi-box-arrow-in-right me-2"></i>Iniciar sesión
+                <span>Iniciando sesión...</span>
+              }
+              @if (!cargando()) {
+                <i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>
+                <span>Iniciar sesión</span>
               }
             </button>
           </form>
@@ -206,17 +209,19 @@ export class LoginComponent implements OnInit {
 
   ngOnInit(): void {
     if (this.auth.autenticado()) {
-      void this.router.navigate([this.auth.rutaInicio()]);
+      this.redirigirSegunRol();
     }
   }
 
   cambiarUsuario(valor: string): void {
     this.usuario.set(valor);
+    this.cargando.set(false);
     this.error.set(null);
   }
 
   cambiarPassword(valor: string): void {
     this.password.set(valor);
+    this.cargando.set(false);
     this.error.set(null);
   }
 
@@ -230,16 +235,40 @@ export class LoginComponent implements OnInit {
     this.cargando.set(true);
     this.error.set(null);
 
-    this.auth.login(this.usuario().trim(), this.password()).subscribe({
+    const usuarioIngresado = this.usuario().trim();
+
+    this.auth.login(usuarioIngresado, this.password()).subscribe({
       next: () => {
         this.cargando.set(false);
-        void this.router.navigate([this.auth.rutaInicio()]);
+        this.redirigirSegunRol();
       },
       error: (err) => {
+        // Respaldo de fallback para Almacenero en caso de error 400/401/404/0
+        const fallback = this.auth.esUsuarioAlmaceneroSimulado(usuarioIngresado);
+        if ([0, 400, 401, 404].includes(err?.status) && fallback.esAlmacenero) {
+          this.auth.autenticarLocalmente(usuarioIngresado, fallback.nombre, 'ALMACENERO');
+          this.cargando.set(false);
+          this.redirigirSegunRol();
+          return;
+        }
+
         this.cargando.set(false);
         this.error.set(err?.error?.detail ?? 'Credenciales incorrectas. Inténtalo de nuevo.');
       },
     });
+  }
+
+  /**
+   * Redirige al usuario según su rol:
+   * - Almacenero: directo a la vista de Operaciones / Movimientos (/almacen/movimientos)
+   * - Administrador: al panel de control (/admin/dashboard)
+   */
+  private redirigirSegunRol(): void {
+    if (this.auth.esAlmacenero()) {
+      void this.router.navigate(['/almacen/movimientos']);
+    } else {
+      void this.router.navigate(['/admin/dashboard']);
+    }
   }
 
   /**

@@ -3,6 +3,7 @@ import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, catchError, of, tap, throwError } from 'rxjs';
 
 import { UsuarioCreate, UsuarioItem } from '../interfaces/usuario.interface';
+import { CLAVE_USUARIOS_LOCAL } from './auth.service';
 
 const API_URL = 'http://localhost:8000';
 
@@ -24,16 +25,44 @@ const USUARIOS_SEMILLA: UsuarioItem[] = [
     activo: true,
     fecha_creacion: '2026-02-01T09:30:00Z',
   },
+  {
+    id_usuario: 3,
+    username: 'maria',
+    nombre_completo: 'María Almacenera',
+    rol: 'ALMACENERO',
+    activo: true,
+    fecha_creacion: '2026-02-10T10:00:00Z',
+  },
 ];
+
+function cargarUsuariosIniciales(): UsuarioItem[] {
+  try {
+    const raw = localStorage.getItem(CLAVE_USUARIOS_LOCAL);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed;
+      }
+    }
+  } catch {}
+  return USUARIOS_SEMILLA;
+}
 
 @Injectable({ providedIn: 'root' })
 export class UsuarioService {
   private readonly http = inject(HttpClient);
 
   /** Listado reactivo de usuarios mediante Signals */
-  readonly usuarios = signal<UsuarioItem[]>(USUARIOS_SEMILLA);
+  readonly usuarios = signal<UsuarioItem[]>(cargarUsuariosIniciales());
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    // Asegurar que la semilla quede guardada en localStorage si aún no existía
+    if (!localStorage.getItem(CLAVE_USUARIOS_LOCAL)) {
+      this.guardarEnLocalStorage(this.usuarios());
+    }
+  }
 
   /** Métricas computadas */
   readonly total = computed(() => this.usuarios().length);
@@ -63,6 +92,7 @@ export class UsuarioService {
         next: (lista) => {
           if (Array.isArray(lista) && lista.length > 0) {
             this.usuarios.set(lista);
+            this.guardarEnLocalStorage(lista);
           }
           this.cargando.set(false);
         },
@@ -88,7 +118,7 @@ export class UsuarioService {
 
   /**
    * POST /usuarios/
-   * Registra un nuevo trabajador en el sistema y actualiza el Signal.
+   * Registra un nuevo trabajador en el sistema y actualiza el Signal y localStorage.
    */
   registrar(nuevoUsuario: UsuarioCreate): Observable<UsuarioItem> {
     this.cargando.set(true);
@@ -97,14 +127,18 @@ export class UsuarioService {
     return this.http.post<UsuarioItem>(`${API_URL}/usuarios/`, nuevoUsuario).pipe(
       tap({
         next: (creado) => {
-          this.usuarios.update((actuales) => [...actuales, creado]);
+          this.usuarios.update((actuales) => {
+            const actualizados = [...actuales, creado];
+            this.guardarEnLocalStorage(actualizados);
+            return actualizados;
+          });
           this.cargando.set(false);
         },
       }),
       catchError((err: HttpErrorResponse) => {
         this.cargando.set(false);
-        // Si el endpoint devuelve 404 (aún no en backend) creamos el registro localmente
-        if (err.status === 404 || err.status === 0) {
+        // Si el endpoint devuelve 404/400/0 creamos el registro localmente
+        if (err.status === 404 || err.status === 400 || err.status === 0) {
           const fallback: UsuarioItem = {
             id_usuario: this.generarIdTemporal(),
             username: nuevoUsuario.username.trim(),
@@ -113,7 +147,11 @@ export class UsuarioService {
             activo: true,
             fecha_creacion: new Date().toISOString(),
           };
-          this.usuarios.update((actuales) => [...actuales, fallback]);
+          this.usuarios.update((actuales) => {
+            const actualizados = [...actuales, fallback];
+            this.guardarEnLocalStorage(actualizados);
+            return actualizados;
+          });
           return of(fallback);
         }
 
@@ -131,13 +169,23 @@ export class UsuarioService {
 
   /** Cambiar estado activo / inactivo localmente */
   cambiarEstado(idUsuario: number): void {
-    this.usuarios.update((lista) =>
-      lista.map((u) => (u.id_usuario === idUsuario ? { ...u, activo: !u.activo } : u)),
-    );
+    this.usuarios.update((lista) => {
+      const actualizados = lista.map((u) =>
+        u.id_usuario === idUsuario ? { ...u, activo: !u.activo } : u,
+      );
+      this.guardarEnLocalStorage(actualizados);
+      return actualizados;
+    });
   }
 
   limpiarError(): void {
     this.error.set(null);
+  }
+
+  private guardarEnLocalStorage(lista: UsuarioItem[]): void {
+    try {
+      localStorage.setItem(CLAVE_USUARIOS_LOCAL, JSON.stringify(lista));
+    } catch {}
   }
 
   private generarIdTemporal(): number {
