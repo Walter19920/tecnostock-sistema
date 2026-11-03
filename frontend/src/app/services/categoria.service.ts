@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import {
@@ -29,9 +29,13 @@ export class CategoriaService {
           this.categorias.set(lista);
           this.cargando.set(false);
         },
-        error: () => {
+        error: (err: HttpErrorResponse) => {
           this.cargando.set(false);
-          this.error.set('No se pudieron cargar las categorías.');
+          this.error.set(
+            err.status === 0
+              ? 'No se pudo conectar con el backend (localhost:8000).'
+              : 'No se pudieron cargar las categorías.',
+          );
         },
       }),
     );
