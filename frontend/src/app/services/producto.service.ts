@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import {
@@ -36,9 +36,13 @@ export class ProductoService {
             this.total.set(pagina.total_registros);
             this.cargando.set(false);
           },
-          error: () => {
+          error: (err: HttpErrorResponse) => {
             this.cargando.set(false);
-            this.error.set('No se pudieron cargar los productos.');
+            this.error.set(
+              err.status === 0
+                ? 'No se pudo conectar con el backend (localhost:8000).'
+                : 'No se pudieron cargar los productos.',
+            );
           },
         }),
       );

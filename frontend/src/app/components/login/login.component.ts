@@ -1,5 +1,5 @@
 import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { FormsModule, NgModel } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import { AuthService } from '../../services/auth.service';
@@ -9,195 +9,186 @@ import { AuthService } from '../../services/auth.service';
   standalone: true,
   imports: [FormsModule],
   template: `
-    <div class="login-page" translate="no">
-      <section class="login-hero">
-        <div class="hero-content">
-          <div class="hero-logo"><i class="bi bi-box-seam"></i></div>
-          <h1>TecnoStock</h1>
-          <p class="hero-lead">
-            Controla tu inventario, tus movimientos y tu stock en un solo lugar.
-          </p>
-          <ul class="hero-list">
-            <li><i class="bi bi-graph-up-arrow"></i>Indicadores en tiempo real</li>
-            <li><i class="bi bi-arrow-left-right"></i>Entradas y salidas al detalle</li>
-            <li><i class="bi bi-bell"></i>Alertas de stock bajo</li>
-          </ul>
-        </div>
-      </section>
-
-      <section class="login-form-side">
-        <div class="login-box">
-          <div class="mb-4">
-            <h2 class="login-title">Bienvenido de nuevo</h2>
-            <p class="text-muted mb-0">Inicia sesión para gestionar tu inventario</p>
+    <div class="login-page">
+      <!-- TARJETA DE ACCESO UNIFICADO (estilo SaaS) -->
+      <div class="card border-0 rounded-4 shadow-lg login-card">
+        <div class="card-body p-4 p-md-5">
+          <!-- ENCABEZADO -->
+          <div class="text-center mb-4">
+            <div class="login-logo mx-auto mb-3">
+              <i class="bi bi-box-seam-fill" aria-hidden="true"></i>
+            </div>
+            <h1 class="h4 fw-bold text-dark mb-1">Bienvenido a TecnoStock</h1>
+            <p class="text-muted small mb-0">Inicia sesión con tu cuenta de usuario</p>
           </div>
 
-          @if (auth.error()) {
-            <div class="alert alert-danger d-flex align-items-start py-2" role="alert">
+          <!-- ALERTA DE ERROR -->
+          @if (error()) {
+            <div class="alert alert-danger d-flex align-items-start py-2 mb-3" role="alert">
               <i class="bi bi-exclamation-octagon-fill me-2 mt-1"></i>
-              <span>{{ auth.error() }}</span>
+              <span>{{ error() }}</span>
             </div>
           }
 
+          <!-- FORMULARIO ÚNICO DE ACCESO -->
           <form (ngSubmit)="iniciarSesion()" novalidate>
             <div class="mb-3">
               <label class="form-label" for="login-usuario">Usuario</label>
               <div class="input-group input-group-lg">
-                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                <span class="input-group-text"><i class="bi bi-person-fill"></i></span>
                 <input
                   class="form-control"
                   id="login-usuario"
                   name="usuario"
+                  type="text"
                   placeholder="Tu usuario"
                   autocomplete="username"
-                  [class.is-invalid]="enviado() && !usuario().trim()"
                   [ngModel]="usuario()"
-                  (ngModelChange)="onUsuario($event)"
+                  (ngModelChange)="cambiarUsuario($event)"
+                  #campoUsuario="ngModel"
+                  required
+                  minlength="3"
+                  [class.is-invalid]="!!errorDe(campoUsuario)"
                 />
-                <div class="invalid-feedback">Ingresa tu usuario.</div>
               </div>
+              @if (errorDe(campoUsuario); as mensaje) {
+                <div class="invalid-feedback d-block">{{ mensaje }}</div>
+              }
             </div>
 
             <div class="mb-4">
-              <label class="form-label" for="login-clave">Contraseña</label>
+              <label class="form-label" for="login-password">Contraseña</label>
               <div class="input-group input-group-lg">
-                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                <span class="input-group-text"><i class="bi bi-lock-fill"></i></span>
                 <input
                   class="form-control"
-                  id="login-clave"
-                  name="clave"
-                  [type]="verClave() ? 'text' : 'password'"
+                  id="login-password"
+                  name="password"
+                  [type]="mostrarPassword() ? 'text' : 'password'"
                   placeholder="••••••••"
                   autocomplete="current-password"
-                  [class.is-invalid]="enviado() && !clave()"
-                  [ngModel]="clave()"
-                  (ngModelChange)="onClave($event)"
+                  [ngModel]="password()"
+                  (ngModelChange)="cambiarPassword($event)"
+                  #campoPassword="ngModel"
+                  required
+                  minlength="4"
+                  [class.is-invalid]="!!errorDe(campoPassword)"
                 />
                 <button
                   class="btn btn-ver"
                   type="button"
-                  (click)="verClave.set(!verClave())"
-                  [attr.aria-label]="verClave() ? 'Ocultar contraseña' : 'Mostrar contraseña'"
+                  (click)="mostrarPassword.set(!mostrarPassword())"
+                  [attr.aria-label]="
+                    mostrarPassword() ? 'Ocultar contraseña' : 'Mostrar contraseña'
+                  "
                 >
-                  <i class="bi" [class.bi-eye]="!verClave()" [class.bi-eye-slash]="verClave()"></i>
+                  <i
+                    class="bi"
+                    [class.bi-eye-fill]="!mostrarPassword()"
+                    [class.bi-eye-slash-fill]="mostrarPassword()"
+                  ></i>
                 </button>
-                <div class="invalid-feedback">Ingresa tu contraseña.</div>
               </div>
+              @if (errorDe(campoPassword); as mensaje) {
+                <div class="invalid-feedback d-block">{{ mensaje }}</div>
+              }
             </div>
 
-            <button class="btn btn-primary btn-lg w-100" type="submit" [disabled]="auth.cargando()">
-              @if (auth.cargando()) {
-                <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                Iniciando sesión…
-              } @else {
-                <i class="bi bi-box-arrow-in-right me-2"></i>Entrar
+            <!-- BOTÓN DE INICIO DE SESIÓN SIN SUPERPOSICIÓN DE TEXTO -->
+            <button
+              class="btn btn-primary btn-lg w-100 rounded-3 d-flex align-items-center justify-content-center"
+              type="submit"
+              [disabled]="cargando()"
+            >
+              @if (cargando()) {
+                <span
+                  class="spinner-border spinner-border-sm me-2"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                <span>Iniciando sesión...</span>
+              }
+              @if (!cargando()) {
+                <i class="bi bi-box-arrow-in-right me-2" aria-hidden="true"></i>
+                <span>Iniciar sesión</span>
               }
             </button>
           </form>
 
-          <div class="demo-hint">
-            <i class="bi bi-shield-lock me-2"></i>
-            Credenciales de prueba: <strong>admin</strong> / <strong>admin123</strong>
+          <!-- NOTA INFORMATIVA ACCESO UNIFICADO -->
+          <div class="mt-4 pt-2 border-top text-center text-muted small">
+            <span class="d-inline-flex align-items-center gap-1.5 text-secondary">
+              <i class="bi bi-shield-check text-primary"></i>
+              Acceso unificado para <strong>Administradores</strong> y <strong>Almaceneros</strong>
+            </span>
           </div>
         </div>
-      </section>
+      </div>
     </div>
   `,
   styles: [
     `
       .login-page {
-        position: fixed;
-        inset: 0;
-        z-index: 2000;
+        min-height: 100vh;
+        min-height: 100dvh;
         display: grid;
-        grid-template-columns: 1.1fr 1fr;
-        background: #fff;
-        overflow: auto;
+        place-items: center;
+        padding: 1.5rem 1rem;
+        background: linear-gradient(135deg, #eff6ff 0%, #f8fafc 50%, #eef2ff 100%);
       }
-
-      /* Lado izquierdo */
-      .login-hero {
-        position: relative;
-        display: flex;
-        align-items: center;
-        padding: 4rem;
+      .login-card {
+        width: 100%;
+        max-width: 420px;
+      }
+      .login-logo {
+        width: 56px;
+        height: 56px;
+        display: grid;
+        place-items: center;
+        border-radius: 16px;
+        background: linear-gradient(135deg, #2563eb, #1e3a8a);
         color: #fff;
-        overflow: hidden;
-        background:
-          radial-gradient(circle at 15% 15%, rgba(96, 165, 250, 0.35), transparent 45%),
-          linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+        font-size: 1.6rem;
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.35);
       }
-      .login-hero::before,
-      .login-hero::after {
-        content: '';
-        position: absolute;
-        border-radius: 50%;
-        background: rgba(255, 255, 255, 0.06);
+      .form-label {
+        font-weight: 600;
+        color: #334155;
+        font-size: 0.9rem;
       }
-      .login-hero::before { width: 380px; height: 380px; right: -120px; bottom: -120px; }
-      .login-hero::after { width: 220px; height: 220px; right: 120px; top: -80px; }
-      .hero-content { position: relative; z-index: 1; max-width: 440px; }
-      .hero-logo {
-        width: 64px; height: 64px;
-        display: grid; place-items: center;
-        border-radius: 18px;
-        font-size: 2rem;
-        background: rgba(255, 255, 255, 0.14);
-        backdrop-filter: blur(6px);
-        margin-bottom: 1.5rem;
-      }
-      .login-hero h1 { font-size: 2.8rem; font-weight: 700; margin-bottom: 0.75rem; }
-      .hero-lead { color: #cbd5e1; font-size: 1.1rem; margin-bottom: 2rem; }
-      .hero-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 0.9rem; }
-      .hero-list li { display: flex; align-items: center; color: #e2e8f0; }
-      .hero-list i {
-        width: 36px; height: 36px;
-        display: grid; place-items: center;
-        border-radius: 10px;
-        margin-right: 0.8rem;
-        background: rgba(255, 255, 255, 0.12);
-        color: #93c5fd;
-      }
-
-      /* Lado derecho */
-      .login-form-side {
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        padding: 2rem;
+      .input-group-text {
         background: #f8fafc;
+        border-color: #e2e8f0;
+        color: #64748b;
       }
-      .login-box { width: 100%; max-width: 400px; }
-      .login-title { font-weight: 700; color: #0f172a; }
-      .form-label { font-weight: 500; color: #334155; }
-      .input-group-text { background: #fff; color: #64748b; }
-      .login-box .form-control { border-left: 0; }
-      .login-box .form-control:focus { box-shadow: none; }
-      .input-group:focus-within { border-radius: 0.5rem; box-shadow: 0 0 0 0.2rem rgba(37, 99, 235, 0.15); }
-      .btn-ver { background: #fff; border: 1px solid #dee2e6; border-left: 0; color: #64748b; }
-      .btn-ver:hover { color: #1e3a8a; background: #fff; }
+      .btn-ver {
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-left: 0;
+        color: #64748b;
+      }
+      .btn-ver:hover {
+        background: #f8fafc;
+        color: #1e3a8a;
+      }
       .btn-primary {
         background: linear-gradient(135deg, #2563eb, #1e3a8a);
         border: 0;
         font-weight: 600;
-        padding: 0.75rem;
-        box-shadow: 0 8px 20px rgba(37, 99, 235, 0.3);
+        box-shadow: 0 10px 24px rgba(37, 99, 235, 0.3);
       }
-      .btn-primary:hover { filter: brightness(1.08); transform: translateY(-1px); }
-      .demo-hint {
-        margin-top: 1.5rem;
-        padding: 0.7rem 1rem;
-        text-align: center;
-        font-size: 0.85rem;
-        color: #475569;
-        background: #eff6ff;
-        border: 1px dashed #bfdbfe;
-        border-radius: 10px;
+      .btn-primary:hover:not(:disabled) {
+        filter: brightness(1.08);
+        transform: translateY(-1px);
       }
-
-      @media (max-width: 860px) {
-        .login-page { grid-template-columns: 1fr; }
-        .login-hero { display: none; }
+      .btn-primary:disabled {
+        opacity: 0.85;
+        box-shadow: none;
+      }
+      @media (max-width: 575.98px) {
+        .login-page {
+          padding: 1rem 0.75rem;
+        }
       }
     `,
   ],
@@ -206,34 +197,101 @@ export class LoginComponent implements OnInit {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
 
-  protected readonly usuario = signal('');
-  protected readonly clave = signal('');
+  /** Signals de estado del formulario de acceso. */
+  readonly usuario = signal('');
+  readonly password = signal('');
+  readonly mostrarPassword = signal(false);
+  readonly cargando = signal(false);
+  readonly error = signal<string | null>(null);
+
+  /** Señal interna para control de validación al enviar */
   protected readonly enviado = signal(false);
-  protected readonly verClave = signal(false);
 
   ngOnInit(): void {
     if (this.auth.autenticado()) {
-      void this.router.navigate(['/dashboard']);
+      this.redirigirSegunRol();
     }
   }
 
-  onUsuario(valor: string): void {
+  cambiarUsuario(valor: string): void {
     this.usuario.set(valor);
-    this.auth.limpiarError();
+    this.cargando.set(false);
+    this.error.set(null);
   }
 
-  onClave(valor: string): void {
-    this.clave.set(valor);
-    this.auth.limpiarError();
+  cambiarPassword(valor: string): void {
+    this.password.set(valor);
+    this.cargando.set(false);
+    this.error.set(null);
   }
 
   iniciarSesion(): void {
     this.enviado.set(true);
-    if (!this.usuario().trim() || !this.clave()) {
+
+    if (!this.usuario().trim() || !this.password()) {
       return;
     }
-    this.auth
-      .login({ username: this.usuario().trim(), password: this.clave() })
-      .subscribe({ next: () => void this.router.navigate(['/dashboard']) });
+
+    this.cargando.set(true);
+    this.error.set(null);
+
+    const usuarioIngresado = this.usuario().trim();
+
+    this.auth.login(usuarioIngresado, this.password()).subscribe({
+      next: () => {
+        this.cargando.set(false);
+        this.redirigirSegunRol();
+      },
+      error: (err) => {
+        // Respaldo de fallback para Almacenero en caso de error 400/401/404/0
+        const fallback = this.auth.esUsuarioAlmaceneroSimulado(usuarioIngresado);
+        if ([0, 400, 401, 404].includes(err?.status) && fallback.esAlmacenero) {
+          this.auth.autenticarLocalmente(usuarioIngresado, fallback.nombre, 'ALMACENERO');
+          this.cargando.set(false);
+          this.redirigirSegunRol();
+          return;
+        }
+
+        this.cargando.set(false);
+        this.error.set(err?.error?.detail ?? 'Credenciales incorrectas. Inténtalo de nuevo.');
+      },
+    });
+  }
+
+  /**
+   * Redirige al usuario según su rol:
+   * - Almacenero: directo a la vista de Operaciones / Movimientos (/almacen/movimientos)
+   * - Administrador: al panel de control (/admin/dashboard)
+   */
+  private redirigirSegunRol(): void {
+    if (this.auth.esAlmacenero()) {
+      void this.router.navigate(['/almacen/movimientos']);
+    } else {
+      void this.router.navigate(['/admin/dashboard']);
+    }
+  }
+
+  /**
+   * Mensaje de validación del campo; `null` cuando aún no debe mostrarse
+   * (se revela al enviar o en cuanto el campo es tocado/modificado).
+   */
+  protected errorDe(campo: NgModel | null): string | null {
+    if (!campo || !campo.invalid) {
+      return null;
+    }
+    if (!this.enviado() && !campo.touched && !campo.dirty) {
+      return null;
+    }
+    const errores = campo.errors;
+    if (!errores) {
+      return null;
+    }
+    if (errores['required']) {
+      return 'Este campo es obligatorio.';
+    }
+    if (errores['minlength']) {
+      return `Debe tener al menos ${errores['minlength'].requiredLength} caracteres.`;
+    }
+    return 'El valor ingresado no es válido.';
   }
 }

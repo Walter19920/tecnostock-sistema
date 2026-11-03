@@ -1,5 +1,6 @@
-import { Component, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, OnInit, computed, inject, signal } from '@angular/core';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 
 import {
@@ -9,11 +10,18 @@ import {
 } from '../../interfaces/categoria.interface';
 import { AuthService } from '../../services/auth.service';
 import { CategoriaService } from '../../services/categoria.service';
+import { mensajeError, soloEspacios } from '../../utils/validaciones';
+
+/** Etiqueta legible de cada campo para los mensajes de validación. */
+const ETIQUETAS: Record<string, string> = {
+  nombre: 'El nombre',
+  descripcion: 'La descripción',
+};
 
 @Component({
   selector: 'app-categorias',
   standalone: true,
-  imports: [FormsModule],
+  imports: [ReactiveFormsModule],
   template: `
     <div class="container-fluid py-4 px-4">
       <!-- CABECERA DE LA VISTA -->
@@ -143,8 +151,13 @@ import { CategoriaService } from '../../services/categoria.service';
           aria-modal="true"
           style="background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);"
         >
-          <div class="modal-dialog modal-dialog-centered">
-            <form class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" (ngSubmit)="guardar()" novalidate>
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+            <form
+              class="modal-content border-0 shadow-lg rounded-4 overflow-hidden"
+              [formGroup]="formulario"
+              (ngSubmit)="guardar()"
+              novalidate
+            >
               
               <!-- MODAL HEADER -->
               <div class="modal-header bg-light border-bottom px-4 py-3">
@@ -171,14 +184,14 @@ import { CategoriaService } from '../../services/categoria.service';
                   <input
                     class="form-control rounded-3 py-2 px-3"
                     id="cat-nombre"
-                    name="nombre"
+                    formControlName="nombre"
                     placeholder="Ej. Lentes de contacto, Almacenamiento..."
-                    [class.is-invalid]="enviado() && !nombre().trim()"
-                    [ngModel]="nombre()"
-                    (ngModelChange)="nombre.set($event)"
+                    [class.is-invalid]="!!errorDe('nombre')"
                     autofocus
                   />
-                  <div class="invalid-feedback">El nombre es obligatorio.</div>
+                  @if (errorDe('nombre'); as error) {
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                  }
                 </div>
 
                 <div class="mb-3">
@@ -186,12 +199,14 @@ import { CategoriaService } from '../../services/categoria.service';
                   <textarea
                     class="form-control rounded-3 py-2 px-3"
                     id="cat-descripcion"
-                    name="descripcion"
+                    formControlName="descripcion"
                     rows="3"
                     placeholder="Escribe un breve resumen de lo que incluye esta categoría..."
-                    [ngModel]="descripcion()"
-                    (ngModelChange)="descripcion.set($event)"
+                    [class.is-invalid]="!!errorDe('descripcion')"
                   ></textarea>
+                  @if (errorDe('descripcion'); as error) {
+                    <div class="invalid-feedback d-block">{{ error }}</div>
+                  }
                 </div>
 
                 @if (editandoId() !== null) {
@@ -206,9 +221,7 @@ import { CategoriaService } from '../../services/categoria.service';
                         type="checkbox"
                         role="switch"
                         id="cat-activa"
-                        name="activo"
-                        [ngModel]="activa()"
-                        (ngModelChange)="activa.set($event)"
+                        formControlName="activo"
                       />
                     </div>
                   </div>
@@ -217,6 +230,11 @@ import { CategoriaService } from '../../services/categoria.service';
 
               <!-- MODAL FOOTER -->
               <div class="modal-footer bg-light border-top px-4 py-3">
+                @if (!formularioValido()) {
+                  <span class="small text-muted me-auto">
+                    <i class="bi bi-info-circle me-1"></i>Completa los campos obligatorios
+                  </span>
+                }
                 <button class="btn btn-outline-secondary rounded-3 px-3 py-2 text-sm fw-semibold" type="button" (click)="cerrarModal()">
                   Cancelar
                 </button>
@@ -239,11 +257,34 @@ export class CategoriasComponent implements OnInit {
 
   protected readonly modalAbierto = signal(false);
   protected readonly editandoId = signal<number | null>(null);
-  protected readonly enviado = signal(false);
 
-  protected readonly nombre = signal('');
-  protected readonly descripcion = signal('');
-  protected readonly activa = signal(true);
+  /** Reactive Forms con Signals: validación en tiempo real de la categoría. */
+  protected readonly formulario = new FormGroup({
+    nombre: new FormControl('', {
+      nonNullable: true,
+      validators: [
+        Validators.required,
+        Validators.minLength(3),
+        Validators.maxLength(120),
+        soloEspacios(),
+      ],
+    }),
+    descripcion: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(500)],
+    }),
+    activo: new FormControl(true, { nonNullable: true }),
+  });
+
+  /** valueChanges del formulario expuesto como Signal. */
+  private readonly cambiosFormulario = toSignal(this.formulario.valueChanges, {
+    initialValue: this.formulario.getRawValue(),
+  });
+  /** Estado derivado del formulario (se recalcula con cada cambio). */
+  protected readonly formularioValido = computed(() => {
+    this.cambiosFormulario();
+    return this.formulario.valid;
+  });
 
   ngOnInit(): void {
     if (!this.auth.autenticado()) {
@@ -253,21 +294,24 @@ export class CategoriasComponent implements OnInit {
     this.servicio.obtenerTodas().subscribe({ error: () => undefined });
   }
 
+  /** Mensaje de validación del campo (solo si es inválido y ya fue tocado). */
+  protected errorDe(nombre: 'nombre' | 'descripcion'): string | null {
+    return mensajeError(this.formulario.get(nombre), ETIQUETAS[nombre] ?? 'Este campo');
+  }
+
   abrirNuevo(): void {
     this.editandoId.set(null);
-    this.nombre.set('');
-    this.descripcion.set('');
-    this.activa.set(true);
-    this.enviado.set(false);
+    this.formulario.reset({ nombre: '', descripcion: '', activo: true });
     this.modalAbierto.set(true);
   }
 
   abrirEditar(categoria: Categoria): void {
     this.editandoId.set(categoria.id_categoria);
-    this.nombre.set(categoria.nombre);
-    this.descripcion.set(categoria.descripcion ?? '');
-    this.activa.set(categoria.activo);
-    this.enviado.set(false);
+    this.formulario.setValue({
+      nombre: categoria.nombre,
+      descripcion: categoria.descripcion ?? '',
+      activo: categoria.activo,
+    });
     this.modalAbierto.set(true);
   }
 
@@ -276,16 +320,17 @@ export class CategoriasComponent implements OnInit {
   }
 
   guardar(): void {
-    this.enviado.set(true);
-    if (!this.nombre().trim()) {
+    if (this.formulario.invalid) {
+      this.formulario.markAllAsTouched();
       return;
     }
 
-    const nombre = this.nombre().trim();
-    const descripcion = this.descripcion().trim() || null;
+    const { nombre, descripcion, activo } = this.formulario.getRawValue();
+    const nombreLimpio = nombre.trim();
+    const descripcionLimpia = descripcion.trim() || null;
 
     if (this.editandoId() === null) {
-      const datos: CategoriaCreate = { nombre, descripcion };
+      const datos: CategoriaCreate = { nombre: nombreLimpio, descripcion: descripcionLimpia };
       this.servicio
         .crear(datos)
         .subscribe({ next: () => this.cerrarModal(), error: () => undefined });
@@ -294,9 +339,9 @@ export class CategoriasComponent implements OnInit {
 
     const datos: CategoriaUpdate = {
       id_categoria: this.editandoId()!,
-      nombre,
-      descripcion,
-      activo: this.activa(),
+      nombre: nombreLimpio,
+      descripcion: descripcionLimpia,
+      activo,
     };
     this.servicio
       .actualizar(datos)

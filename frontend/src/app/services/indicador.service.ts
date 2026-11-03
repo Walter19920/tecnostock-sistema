@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { HttpClient } from '@angular/common/http';
+import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
 import { IndicadorDashboard, ProductoStockBajo } from '../interfaces/indicador.interface';
@@ -26,9 +26,13 @@ export class IndicadorService {
           this.dashboard.set(respuesta);
           this.cargando.set(false);
         },
-        error: () => {
+        error: (err: HttpErrorResponse) => {
           this.cargando.set(false);
-          this.error.set('No se pudieron cargar los indicadores.');
+          this.error.set(
+            err.status === 0
+              ? 'No se pudo conectar con el backend (localhost:8000).'
+              : 'No se pudieron cargar los indicadores.',
+          );
         },
       }),
     );
@@ -41,7 +45,12 @@ export class IndicadorService {
     return this.http.get<ProductoStockBajo[]>(`${API_URL}/indicadores/stock-bajo`).pipe(
       tap({
         next: (lista) => this.stockBajo.set(lista),
-        error: () => this.error.set('No se pudo cargar el stock bajo.'),
+        error: (err: HttpErrorResponse) =>
+          this.error.set(
+            err.status === 0
+              ? 'No se pudo conectar con el backend (localhost:8000).'
+              : 'No se pudo cargar el stock bajo.',
+          ),
       }),
     );
   }

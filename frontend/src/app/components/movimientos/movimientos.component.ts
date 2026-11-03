@@ -161,7 +161,7 @@ import { ProductoService } from '../../services/producto.service';
           aria-modal="true"
           style="background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);"
         >
-          <div class="modal-dialog modal-dialog-centered">
+          <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
             <form class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" (ngSubmit)="guardar()" novalidate>
               
               <!-- MODAL HEADER -->

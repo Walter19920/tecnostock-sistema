@@ -1,9 +1,9 @@
 import { CurrencyPipe } from '@angular/common';
-import { Component, DestroyRef, OnInit, inject, signal } from '@angular/core';
-import { FormsModule } from '@angular/forms';
+import { Component, DestroyRef, OnInit, computed, inject, signal } from '@angular/core';
+import { takeUntilDestroyed, toSignal } from '@angular/core/rxjs-interop';
+import { FormControl, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
-import { Subject, debounceTime, distinctUntilChanged } from 'rxjs';
+import { debounceTime, distinctUntilChanged } from 'rxjs';
 
 import {
   Producto,
@@ -13,11 +13,24 @@ import {
 import { AuthService } from '../../services/auth.service';
 import { CategoriaService } from '../../services/categoria.service';
 import { ProductoService } from '../../services/producto.service';
+import { entero, mensajeError, positivo, soloEspacios } from '../../utils/validaciones';
+
+/** Etiqueta legible de cada campo para los mensajes de validación. */
+const ETIQUETAS: Record<string, string> = {
+  codigo: 'El código',
+  nombre: 'El nombre',
+  descripcion: 'La descripción',
+  id_categoria: 'La categoría',
+  precio_compra: 'El precio de compra',
+  precio_venta: 'El precio de venta',
+  stock_inicial: 'El stock inicial',
+  stock_minimo: 'El stock mínimo',
+};
 
 @Component({
   selector: 'app-productos',
   standalone: true,
-  imports: [FormsModule, CurrencyPipe],
+  imports: [ReactiveFormsModule, CurrencyPipe],
   template: `
     <div class="container-fluid py-4 px-4">
       <!-- CABECERA DE LA VISTA -->
@@ -46,13 +59,16 @@ import { ProductoService } from '../../services/producto.service';
             <input
               class="form-control border-0 shadow-none py-2"
               id="prod-busqueda"
-              name="busqueda"
               placeholder="Buscar por código o nombre del producto..."
-              [ngModel]="busqueda()"
-              (ngModelChange)="onBusqueda($event)"
+              [formControl]="busqueda"
             />
-            @if (busqueda()) {
-              <button class="btn btn-sm btn-light text-muted rounded-circle" type="button" (click)="onBusqueda('')">
+            @if (busqueda.value) {
+              <button
+                class="btn btn-sm btn-light text-muted rounded-circle"
+                type="button"
+                aria-label="Limpiar búsqueda"
+                (click)="limpiarBusqueda()"
+              >
                 <i class="bi bi-x-lg"></i>
               </button>
             }
@@ -220,7 +236,12 @@ import { ProductoService } from '../../services/producto.service';
           style="background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px);"
         >
           <div class="modal-dialog modal-lg modal-dialog-centered modal-dialog-scrollable">
-            <form class="modal-content border-0 shadow-lg rounded-4 overflow-hidden" (ngSubmit)="guardar()" novalidate>
+            <form
+              class="modal-content border-0 shadow-lg rounded-4 overflow-hidden"
+              [formGroup]="formulario"
+              (ngSubmit)="guardar()"
+              novalidate
+            >
               
               <!-- MODAL HEADER -->
               <div class="modal-header bg-light border-bottom px-4 py-3">
@@ -248,13 +269,13 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3 font-monospace"
                       id="prod-codigo"
-                      name="codigo"
+                      formControlName="codigo"
                       placeholder="Ej. PROD-004"
-                      [class.is-invalid]="enviado() && !codigo().trim()"
-                      [ngModel]="codigo()"
-                      (ngModelChange)="codigo.set($event)"
+                      [class.is-invalid]="!!errorDe('codigo')"
                     />
-                    <div class="invalid-feedback">El código es obligatorio.</div>
+                    @if (errorDe('codigo'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   <div class="col-12 col-md-6">
@@ -262,13 +283,13 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3"
                       id="prod-nombre"
-                      name="nombre"
+                      formControlName="nombre"
                       placeholder="Ej. Monitor LG 27 UltraGear"
-                      [class.is-invalid]="enviado() && !nombre().trim()"
-                      [ngModel]="nombre()"
-                      (ngModelChange)="nombre.set($event)"
+                      [class.is-invalid]="!!errorDe('nombre')"
                     />
-                    <div class="invalid-feedback">El nombre es obligatorio.</div>
+                    @if (errorDe('nombre'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   <div class="col-12 col-md-6">
@@ -276,19 +297,21 @@ import { ProductoService } from '../../services/producto.service';
                     <select
                       class="form-select rounded-3 py-2 px-3"
                       id="prod-categoria"
-                      name="id_categoria"
-                      [class.is-invalid]="enviado() && !categoriaId()"
-                      [ngModel]="categoriaId()"
-                      (ngModelChange)="categoriaId.set($event)"
+                      formControlName="id_categoria"
+                      [class.is-invalid]="!!errorDe('id_categoria')"
                     >
-                      <option [ngValue]="null" disabled>Selecciona una categoría</option>
+                      <option [ngValue]="null" disabled>
+                        {{ categorias.cargando() ? 'Cargando categorías…' : 'Selecciona una categoría' }}
+                      </option>
                       @for (categoria of categorias.categorias(); track categoria.id_categoria) {
                         <option [ngValue]="categoria.id_categoria">
                           {{ categoria.nombre }}
                         </option>
                       }
                     </select>
-                    <div class="invalid-feedback">Selecciona una categoría.</div>
+                    @if (errorDe('id_categoria'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   <div class="col-12 col-md-6">
@@ -296,11 +319,13 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3"
                       id="prod-descripcion"
-                      name="descripcion"
+                      formControlName="descripcion"
                       placeholder="Especificaciones o modelo..."
-                      [ngModel]="descripcion()"
-                      (ngModelChange)="descripcion.set($event)"
+                      [class.is-invalid]="!!errorDe('descripcion')"
                     />
+                    @if (errorDe('descripcion'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   <div class="col-6 col-md-3">
@@ -308,13 +333,15 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3 font-monospace"
                       id="prod-compra"
-                      name="precio_compra"
+                      formControlName="precio_compra"
                       type="number"
                       min="0"
                       step="0.01"
-                      [ngModel]="precioCompra()"
-                      (ngModelChange)="precioCompra.set(+$event)"
+                      [class.is-invalid]="!!errorDe('precio_compra')"
                     />
+                    @if (errorDe('precio_compra'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   <div class="col-6 col-md-3">
@@ -322,15 +349,15 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3 font-monospace"
                       id="prod-venta"
-                      name="precio_venta"
+                      formControlName="precio_venta"
                       type="number"
                       min="0"
                       step="0.01"
-                      [class.is-invalid]="enviado() && precioVenta() <= 0"
-                      [ngModel]="precioVenta()"
-                      (ngModelChange)="precioVenta.set(+$event)"
+                      [class.is-invalid]="!!errorDe('precio_venta')"
                     />
-                    <div class="invalid-feedback">Debe ser mayor a 0.</div>
+                    @if (errorDe('precio_venta'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
 
                   @if (editandoId() === null) {
@@ -339,12 +366,14 @@ import { ProductoService } from '../../services/producto.service';
                       <input
                         class="form-control rounded-3 py-2 px-3 font-monospace"
                         id="prod-stock"
-                        name="stock_inicial"
+                        formControlName="stock_inicial"
                         type="number"
                         min="0"
-                        [ngModel]="stockInicial()"
-                        (ngModelChange)="stockInicial.set(+$event)"
+                        [class.is-invalid]="!!errorDe('stock_inicial')"
                       />
+                      @if (errorDe('stock_inicial'); as error) {
+                        <div class="invalid-feedback d-block">{{ error }}</div>
+                      }
                     </div>
                   }
 
@@ -353,20 +382,25 @@ import { ProductoService } from '../../services/producto.service';
                     <input
                       class="form-control rounded-3 py-2 px-3 font-monospace"
                       id="prod-minimo"
-                      name="stock_minimo"
+                      formControlName="stock_minimo"
                       type="number"
                       min="0"
-                      [class.is-invalid]="enviado() && stockMinimo() < 0"
-                      [ngModel]="stockMinimo()"
-                      (ngModelChange)="stockMinimo.set(+$event)"
+                      [class.is-invalid]="!!errorDe('stock_minimo')"
                     />
-                    <div class="invalid-feedback">Requerido.</div>
+                    @if (errorDe('stock_minimo'); as error) {
+                      <div class="invalid-feedback d-block">{{ error }}</div>
+                    }
                   </div>
                 </div>
               </div>
 
               <!-- MODAL FOOTER -->
               <div class="modal-footer bg-light border-top px-4 py-3">
+                @if (!formularioValido()) {
+                  <span class="small text-muted me-auto">
+                    <i class="bi bi-info-circle me-1"></i>Completa los campos obligatorios
+                  </span>
+                }
                 <button class="btn btn-outline-secondary rounded-3 px-3 py-2 text-sm fw-semibold" type="button" (click)="cerrarModal()">
                   Cancelar
                 </button>
@@ -389,23 +423,62 @@ export class ProductosComponent implements OnInit {
   private readonly router = inject(Router);
 
   private readonly destroyRef = inject(DestroyRef);
-  private readonly cambiosBusqueda = new Subject<string>();
 
-  protected readonly busqueda = signal('');
+  /** Búsqueda reactiva con debounce (Reactive Forms). */
+  protected readonly busqueda = new FormControl('', { nonNullable: true });
+
   protected readonly modalAbierto = signal(false);
   protected readonly editandoId = signal<number | null>(null);
-  protected readonly enviado = signal(false);
 
-  protected readonly codigo = signal('');
-  protected readonly nombre = signal('');
-  protected readonly descripcion = signal('');
-  protected readonly categoriaId = signal<number | null>(null);
-  protected readonly precioCompra = signal(0);
-  protected readonly precioVenta = signal(0);
-  protected readonly stockInicial = signal(0);
-  protected readonly stockMinimo = signal(0);
+  /** Reactive Forms con Signals: validación en tiempo real del producto. */
+  protected readonly formulario = new FormGroup({
+    codigo: new FormControl('', {
+      nonNullable: true,
+      validators: [
+        Validators.required,
+        Validators.minLength(3),
+        Validators.maxLength(30),
+        Validators.pattern(/^[A-Za-z0-9._-]+$/),
+        soloEspacios(),
+      ],
+    }),
+    nombre: new FormControl('', {
+      nonNullable: true,
+      validators: [
+        Validators.required,
+        Validators.minLength(3),
+        Validators.maxLength(120),
+        soloEspacios(),
+      ],
+    }),
+    descripcion: new FormControl('', {
+      nonNullable: true,
+      validators: [Validators.maxLength(300)],
+    }),
+    id_categoria: new FormControl<number | null>(null, { validators: [Validators.required] }),
+    precio_compra: new FormControl<number | null>(null, { validators: [Validators.min(0)] }),
+    precio_venta: new FormControl<number | null>(null, {
+      validators: [Validators.required, positivo()],
+    }),
+    stock_inicial: new FormControl<number | null>(null, {
+      validators: [Validators.min(0), entero()],
+    }),
+    stock_minimo: new FormControl<number | null>(null, {
+      validators: [Validators.required, Validators.min(0), entero()],
+    }),
+  });
 
-  private readonly suscripcionBusqueda = this.cambiosBusqueda
+  /** valueChanges del formulario expuesto como Signal. */
+  private readonly cambiosFormulario = toSignal(this.formulario.valueChanges, {
+    initialValue: this.formulario.getRawValue(),
+  });
+  /** Estado derivado del formulario (se recalcula con cada cambio). */
+  protected readonly formularioValido = computed(() => {
+    this.cambiosFormulario();
+    return this.formulario.valid;
+  });
+
+  private readonly suscripcionBusqueda = this.busqueda.valueChanges
     .pipe(debounceTime(300), distinctUntilChanged(), takeUntilDestroyed(this.destroyRef))
     .subscribe((texto) =>
       this.servicio.obtenerTodos({ busqueda: texto }).subscribe({ error: () => undefined }),
@@ -420,36 +493,42 @@ export class ProductosComponent implements OnInit {
     this.categorias.obtenerTodas().subscribe({ error: () => undefined });
   }
 
-  onBusqueda(texto: string): void {
-    this.busqueda.set(texto);
-    this.cambiosBusqueda.next(texto);
+  /** Mensaje de validación del campo (solo si es inválido y ya fue tocado). */
+  protected errorDe(nombre: string): string | null {
+    return mensajeError(this.formulario.get(nombre), ETIQUETAS[nombre] ?? 'Este campo');
+  }
+
+  limpiarBusqueda(): void {
+    this.busqueda.setValue('');
   }
 
   abrirNuevo(): void {
     this.editandoId.set(null);
-    this.codigo.set('');
-    this.nombre.set('');
-    this.descripcion.set('');
-    this.categoriaId.set(null);
-    this.precioCompra.set(0);
-    this.precioVenta.set(0);
-    this.stockInicial.set(0);
-    this.stockMinimo.set(0);
-    this.enviado.set(false);
+    this.formulario.reset({
+      codigo: '',
+      nombre: '',
+      descripcion: '',
+      id_categoria: null,
+      precio_compra: null,
+      precio_venta: null,
+      stock_inicial: null,
+      stock_minimo: null,
+    });
     this.modalAbierto.set(true);
   }
 
   abrirEditar(producto: Producto): void {
     this.editandoId.set(producto.id_producto);
-    this.codigo.set(producto.codigo);
-    this.nombre.set(producto.nombre);
-    this.descripcion.set(producto.descripcion ?? '');
-    this.categoriaId.set(producto.id_categoria);
-    this.precioCompra.set(producto.precio_compra);
-    this.precioVenta.set(producto.precio_venta);
-    this.stockInicial.set(0);
-    this.stockMinimo.set(producto.stock_minimo);
-    this.enviado.set(false);
+    this.formulario.reset({
+      codigo: producto.codigo,
+      nombre: producto.nombre,
+      descripcion: producto.descripcion ?? '',
+      id_categoria: producto.id_categoria,
+      precio_compra: producto.precio_compra,
+      precio_venta: producto.precio_venta,
+      stock_inicial: null,
+      stock_minimo: producto.stock_minimo,
+    });
     this.modalAbierto.set(true);
   }
 
@@ -458,23 +537,19 @@ export class ProductosComponent implements OnInit {
   }
 
   guardar(): void {
-    this.enviado.set(true);
-    if (
-      !this.codigo().trim() ||
-      !this.nombre().trim() ||
-      !this.categoriaId() ||
-      this.stockMinimo() < 0
-    ) {
+    if (this.formulario.invalid) {
+      this.formulario.markAllAsTouched();
       return;
     }
 
-    const codigo = this.codigo().trim();
-    const nombre = this.nombre().trim();
-    const descripcion = this.descripcion().trim() || null;
-    const id_categoria = this.categoriaId()!;
-    const precio_compra = this.precioCompra();
-    const precio_venta = this.precioVenta();
-    const stock_minimo = this.stockMinimo();
+    const valores = this.formulario.getRawValue();
+    const codigo = valores.codigo.trim();
+    const nombre = valores.nombre.trim();
+    const descripcion = valores.descripcion.trim() || null;
+    const id_categoria = valores.id_categoria!;
+    const precio_compra = valores.precio_compra ?? 0;
+    const precio_venta = valores.precio_venta!;
+    const stock_minimo = valores.stock_minimo!;
 
     if (this.editandoId() === null) {
       const datos: ProductoCreate = {
@@ -484,7 +559,7 @@ export class ProductosComponent implements OnInit {
         id_categoria,
         precio_compra,
         precio_venta,
-        stock_inicial: this.stockInicial(),
+        stock_inicial: valores.stock_inicial ?? 0,
         stock_minimo,
       };
       this.servicio
