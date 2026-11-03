@@ -1,0 +1,124 @@
+import { Injectable, computed, inject, signal } from '@angular/core';
+import {
+  HttpClient,
+  HttpErrorResponse,
+  HttpHeaders,
+  HttpParams,
+} from '@angular/common/http';
+import { Observable, tap } from 'rxjs';
+
+import { AuthResponse, LoginRequest, Usuario } from '../interfaces/auth.interface';
+
+const API_URL = 'http://localhost:8000';
+/** Clave de almacenamiento del token en localStorage. */
+export const CLAVE_TOKEN = 'token';
+const CLAVE_TOKEN_LEGADO = 'tecnostock_token';
+const CLAVE_USUARIO = 'tecnostock_usuario';
+
+@Injectable({ providedIn: 'root' })
+export class AuthService {
+  private readonly http = inject(HttpClient);
+
+  /** Token JWT persistido en localStorage (señal de estado de autenticación). */
+  readonly token = signal<string | null>(this.leerToken());
+  /** Usuario autenticado persistido en localStorage. */
+  readonly usuario = signal<Usuario | null>(this.leerUsuario());
+  readonly cargando = signal(false);
+  readonly error = signal<string | null>(null);
+
+  /** true cuando hay token guardado. */
+  readonly autenticado = computed(() => this.token() !== null);
+
+  /**
+   * POST /auth/login — OAuth2 form-urlencoded (username/password vía HttpParams).
+   * Guarda access_token en localStorage bajo la clave `token` y actualiza la Signal.
+   * Errores 401/422/0 se traducen a un mensaje legible en la Signal `error`.
+   */
+  login(credenciales: LoginRequest): Observable<AuthResponse> {
+    this.cargando.set(true);
+    this.error.set(null);
+
+    const body = new HttpParams()
+      .set('username', credenciales.username)
+      .set('password', credenciales.password);
+
+    return this.http
+      .post<AuthResponse>(`${API_URL}/auth/login`, body, {
+        headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+      })
+      .pipe(
+        tap({
+          next: (respuesta) => {
+            localStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
+            localStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.usuario));
+            this.token.set(respuesta.access_token);
+            this.usuario.set(respuesta.usuario);
+            this.cargando.set(false);
+          },
+          error: (err: HttpErrorResponse) => {
+            this.cargando.set(false);
+            this.error.set(this.mensajeError(err));
+          },
+        }),
+      );
+  }
+
+  /** Cierra la sesión y limpia localStorage. */
+  logout(): void {
+    localStorage.removeItem(CLAVE_TOKEN);
+    localStorage.removeItem(CLAVE_TOKEN_LEGADO);
+    localStorage.removeItem(CLAVE_USUARIO);
+    this.token.set(null);
+    this.usuario.set(null);
+  }
+
+  /** Limpia el mensaje de error (al volver a escribir en el formulario). */
+  limpiarError(): void {
+    this.error.set(null);
+  }
+
+  /** Traduce la respuesta HTTP de error a un mensaje amigable para el login. */
+  private mensajeError(err: HttpErrorResponse): string {
+    if (err.status === 0) {
+      return 'No se pudo conectar con el backend (http://localhost:8000). Verifica que esté en ejecución.';
+    }
+    const detalle = err.error?.detail;
+    if (typeof detalle === 'string' && detalle.trim()) {
+      return detalle; // 401 "Credenciales incorrectas", 500 con detalle, etc.
+    }
+    if (err.status === 401) {
+      return 'Usuario o contraseña incorrectos.';
+    }
+    if (err.status === 422) {
+      return 'Datos de inicio de sesión inválidos.';
+    }
+    return `Error del servidor (${err.status}). Inténtalo de nuevo.`;
+  }
+
+  /** Lee el token; migra la clave antigua `tecnostock_token` si existía. */
+  private leerToken(): string | null {
+    const token = localStorage.getItem(CLAVE_TOKEN);
+    if (token) {
+      return token;
+    }
+    const legado = localStorage.getItem(CLAVE_TOKEN_LEGADO);
+    if (legado) {
+      localStorage.setItem(CLAVE_TOKEN, legado);
+      localStorage.removeItem(CLAVE_TOKEN_LEGADO);
+      return legado;
+    }
+    return null;
+  }
+
+  private leerUsuario(): Usuario | null {
+    const crudo = localStorage.getItem(CLAVE_USUARIO);
+    if (!crudo) {
+      return null;
+    }
+    try {
+      return JSON.parse(crudo) as Usuario;
+    } catch {
+      return null;
+    }
+  }
+}
