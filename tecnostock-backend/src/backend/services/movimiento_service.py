@@ -17,21 +17,71 @@ from repositories import movimiento_repository
 from schemas.movimiento import EntradaCreate, MovimientoOut, SalidaCreate
 from schemas.pagination import PaginacionResponse
 
+def _row_a_movimiento_out(
+    row: dict,
+    tipo_default: str = "ENTRADA",
+    data_input: EntradaCreate | SalidaCreate | None = None,
+    id_usuario: int | None = None,
+) -> MovimientoOut:
+    """
+    Convierte un dict del repositorio en MovimientoOut mapeando los aliases
+    exactos devueltos por sp_ConsultarMovimientosPaginado.
+    """
+    r = {str(k).lower(): v for k, v in row.items()} if row else {}
 
-def _row_a_movimiento_out(row: dict) -> MovimientoOut:
-    """Convierte un dict del repositorio en MovimientoOut."""
-    return MovimientoOut(
-        id_movimiento=row["id_movimiento"],
-        tipo=row["tipo"],
-        producto=row["producto"],
-        cantidad=int(row["cantidad"]),
-        precio_unitario=float(row["precio_unitario"]),
-        total=float(row["total"]),
-        fecha=str(row["fecha"]),
-        usuario=row["usuario"],
-        observacion=row.get("observacion"),
+    # 1. ID Movimiento
+    id_mov = int(r.get("id_movimiento") or 1)
+
+    # 2. Tipo de movimiento
+    tipo_mov = str(r.get("tipo_movimiento") or r.get("tipo") or tipo_default)
+
+    # 3. Nombre del producto
+    prod_id = data_input.id_producto if data_input else r.get("id_producto", "")
+    prod_nombre = str(
+        r.get("producto_nombre")
+        or r.get("producto")
+        or (f"Producto #{prod_id}" if prod_id else "Producto N/A")
     )
 
+    # 4. Cantidad
+    cant = int(r.get("cantidad") or (data_input.cantidad if data_input else 0))
+
+    # 5. Precio unitario (Del payload en inserts; 0.0 en listados del historial)
+    if data_input:
+        precio = float(getattr(data_input, "precio_compra", getattr(data_input, "precio_venta", 0.0)))
+    else:
+        precio = float(r.get("precio_unitario") or r.get("precio_compra") or r.get("precio_venta") or 0.0)
+
+    # 6. Total
+    tot = float(r.get("total") or (cant * precio))
+
+    # 7. Fecha
+    fecha_val = r.get("fecha") or r.get("fecha_movimiento") or ""
+    fecha_str = str(fecha_val)
+
+    # 8. Usuario
+    usr_val = id_usuario if id_usuario is not None else r.get("id_usuario", "")
+    usr_nombre = (
+        r.get("usuario_registrador")
+        or r.get("usuario")
+        or (f"Usuario #{usr_val}" if usr_val else "Sistema")
+    )
+    usr_str = str(usr_nombre)
+
+    # 9. Observación / Motivo
+    obs = r.get("motivo") or r.get("observacion") or (data_input.observacion if data_input else None)
+
+    return MovimientoOut(
+        id_movimiento=id_mov,
+        tipo=tipo_mov,
+        producto=prod_nombre,
+        cantidad=cant,
+        precio_unitario=precio,
+        total=tot,
+        fecha=fecha_str,
+        usuario=usr_str,
+        observacion=obs,
+    )
 
 def registrar_entrada(data: EntradaCreate, id_usuario: int) -> MovimientoOut:
     """
@@ -66,7 +116,7 @@ def registrar_entrada(data: EntradaCreate, id_usuario: int) -> MovimientoOut:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error de base de datos: {str(e)}",
         )
-    return _row_a_movimiento_out(row)
+    return _row_a_movimiento_out(row, tipo_default="ENTRADA", data_input=data, id_usuario=id_usuario)
 
 
 def registrar_salida(data: SalidaCreate, id_usuario: int) -> MovimientoOut:
@@ -102,7 +152,7 @@ def registrar_salida(data: SalidaCreate, id_usuario: int) -> MovimientoOut:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error de base de datos: {str(e)}",
         )
-    return _row_a_movimiento_out(row)
+    return _row_a_movimiento_out(row, tipo_default="SALIDA", data_input=data, id_usuario=id_usuario)
 
 
 def consultar_movimientos(

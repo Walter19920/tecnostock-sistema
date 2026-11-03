@@ -105,10 +105,9 @@ INSERT INTO TiposMovimiento (id_tipo_movimiento, nombre) VALUES
 (1, 'ENTRADA'),
 (2, 'SALIDA');
 
--- Usuarios semilla
-INSERT INTO Usuarios (username, password_hash, nombre_completo, rol, activo) VALUES 
-('admin', '$2b$12$K1xZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L653282218388383', 'Administrador General', 'ADMIN', 1),
-('almacen', '$2b$12$K1xZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeG6L653282218388383', 'Juan Pérez - Almacén', 'ALMACENERO', 1);
+-- Usuario semilla (Contraseña: admin123)
+INSERT INTO Usuarios (username, password_hash, nombre_completo, rol, activo) VALUES
+('admin', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'Administrador General', 'ADMIN', 1);
 
 -- Categorías iniciales
 INSERT INTO Categorias (nombre, descripcion, activo) VALUES
@@ -511,4 +510,48 @@ BEGIN
     WHERE p.activo = 1 AND p.stock_actual <= p.stock_minimo
     ORDER BY p.stock_actual ASC;
 END;
+GO
+
+
+-- ============================================================================
+-- 9. Insertar Datos
+-- ============================================================================
+
+
+-- 1. Producto en Categoría 'Laptops y Notebooks' (id_categoria = 1)
+EXEC sp_RegistrarProducto 
+    @codigo = 'PROD-001', 
+    @nombre = 'Laptop Lenovo ThinkPad L14', 
+    @descripcion = 'Core i7, 16GB RAM, 512GB SSD', 
+    @id_categoria = 1, 
+    @precio_compra = 2800.00, 
+    @precio_venta = 3500.00, 
+    @stock_minimo = 3, 
+    @stock_inicial = 10,
+    @id_usuario = 1;
+
+-- 2. Producto en Categoría 'Periféricos y Accesorios' (id_categoria = 2)
+EXEC sp_RegistrarProducto 
+    @codigo = 'PROD-002', 
+    @nombre = 'Mouse Inalámbrico Logitech MX Master 3S', 
+    @descripcion = 'Mouse ergonómico silencioso', 
+    @id_categoria = 2, 
+    @precio_compra = 320.00, 
+    @precio_venta = 450.00, 
+    @stock_minimo = 5, 
+    @stock_inicial = 15,
+    @id_usuario = 1;
+
+-- 3. Producto en Categoría 'Almacenamiento' (id_categoria = 3)
+-- (Este producto se crea con stock_inicial = 2 para probar la alerta de stock bajo RF06)
+EXEC sp_RegistrarProducto 
+    @codigo = 'PROD-003', 
+    @nombre = 'Disco Sólido Kingston NV2 1TB NVMe', 
+    @descripcion = 'SSD PCIe 4.0 NVMe M.2', 
+    @id_categoria = 3, 
+    @precio_compra = 210.00, 
+    @precio_venta = 290.00, 
+    @stock_minimo = 4, 
+    @stock_inicial = 2, 
+    @id_usuario = 1;
 GO

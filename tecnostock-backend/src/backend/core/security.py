@@ -3,32 +3,25 @@ core/security.py
 Utilidades de seguridad: decodificación de JWT y dependencia get_current_user.
 """
 from fastapi import Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from jose import JWTError, jwt
 
-from core.config import get_settings
 from schemas.auth import UsuarioOut
 
-# Debe coincidir con el valor en auth_service.py
 SECRET_KEY = "tecnostock-secret-key-change-in-production"
 ALGORITHM = "HS256"
 
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login")
+# Cambiamos a HTTPBearer para pegar el JWT token directamente en Swagger UI
+security_scheme = HTTPBearer()
 
 
-def get_current_user(token: str = Depends(oauth2_scheme)) -> UsuarioOut:
+def get_current_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
+) -> UsuarioOut:
     """
     Dependencia FastAPI que valida el JWT y retorna el usuario autenticado.
-
-    Args:
-        token: Token Bearer extraído del header Authorization.
-
-    Returns:
-        UsuarioOut con los datos del usuario autenticado.
-
-    Raises:
-        HTTPException 401: Si el token es inválido o expirado.
     """
+    token = credentials.credentials
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="No se pudo validar las credenciales",
@@ -43,10 +36,9 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> UsuarioOut:
     except JWTError:
         raise credentials_exception
 
-    # Retornamos un UsuarioOut mínimo con los datos del token
     return UsuarioOut(
         id_usuario=int(id_usuario),
-        username="",   # No almacenado en el token; recuperar de BD si es necesario
+        username="",
         nombre="",
         rol=rol,
     )

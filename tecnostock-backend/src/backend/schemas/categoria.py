@@ -16,6 +16,7 @@ class CategoriaUpdate(BaseModel):
     id_categoria: int
     nombre: str
     descripcion: str | None = None
+    activo: bool = True
 
 
 class CategoriaOut(BaseModel):

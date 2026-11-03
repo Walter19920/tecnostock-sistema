@@ -49,7 +49,13 @@ def crear_categoria(data: CategoriaCreate) -> CategoriaOut:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error de base de datos: {str(e)}",
         )
-    return _row_a_categoria_out(row)
+        
+    return CategoriaOut(
+        id_categoria=row["id_categoria"],
+        nombre=data.nombre,
+        descripcion=data.descripcion,
+        activo=True
+    )
 
 
 def listar_categorias() -> list[CategoriaOut]:
@@ -79,7 +85,7 @@ def actualizar_categoria(data: CategoriaUpdate) -> CategoriaOut:
     Actualiza una categoría existente.
 
     Args:
-        data: CategoriaUpdate con id_categoria, nombre y descripción.
+        data: CategoriaUpdate con id_categoria, nombre, descripción y activo.
 
     Returns:
         CategoriaOut con los datos actualizados.
@@ -90,8 +96,13 @@ def actualizar_categoria(data: CategoriaUpdate) -> CategoriaOut:
     """
     try:
         conn: pyodbc.Connection = get_connection()
+        # Se obtiene el atributo 'activo' si existe en la schema (True por defecto)
+        activo_val = getattr(data, "activo", True)
+        if activo_val is None:
+            activo_val = True
+
         row = categoria_repository.actualizar_categoria(
-            conn, data.id_categoria, data.nombre, data.descripcion
+            conn, data.id_categoria, data.nombre, data.descripcion, activo_val
         )
         conn.close()
     except pyodbc.IntegrityError as e:
