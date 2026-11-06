@@ -2,14 +2,61 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse, HttpParams } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
-import {
-  Producto,
-  ProductoCreate,
-  ProductoUpdate,
-} from '../interfaces/producto.interface';
+import { Producto, ProductoCreate, ProductoUpdate } from '../interfaces/producto.interface';
 import { Paginacion, ParametrosPaginacion } from '../interfaces/paginacion.interface';
 
 const API_URL = 'http://localhost:8000';
+const CLAVE_IMAGENES_LOCAL = 'tecnostock_productos_imagenes';
+
+/**
+ * URLs de demostración predeterminadas para los productos iniciales del sistema.
+ */
+const IMAGENES_SEMILLA: Record<string, string> = {
+  'PROD-001':
+    'https://images.unsplash.com/photo-1588872657578-7efd1f1555ed?w=240&auto=format&fit=crop&q=80',
+  'PROD-002':
+    'https://images.unsplash.com/photo-1527864550417-7fd91fc51a46?w=240&auto=format&fit=crop&q=80',
+  'PROD-003':
+    'https://images.unsplash.com/photo-1527443224154-c4a3942d3acf?w=240&auto=format&fit=crop&q=80',
+};
+
+function leerImagenesLocales(): Record<string, string> {
+  try {
+    const raw = localStorage.getItem(CLAVE_IMAGENES_LOCAL);
+    return raw ? { ...IMAGENES_SEMILLA, ...JSON.parse(raw) } : { ...IMAGENES_SEMILLA };
+  } catch {
+    return { ...IMAGENES_SEMILLA };
+  }
+}
+
+function guardarImagenLocal(idOcodigo: string | number, url: string | null | undefined): void {
+  try {
+    const mapa = leerImagenesLocales();
+    const clave = String(idOcodigo).trim();
+    if (url && url.trim()) {
+      mapa[clave] = url.trim();
+    } else {
+      delete mapa[clave];
+    }
+    localStorage.setItem(CLAVE_IMAGENES_LOCAL, JSON.stringify(mapa));
+  } catch {}
+}
+
+function enriquecerProducto(producto: Producto): Producto {
+  const mapa = leerImagenesLocales();
+  const url =
+    producto.imagenUrl ||
+    producto.imagen_url ||
+    mapa[String(producto.id_producto)] ||
+    mapa[producto.codigo] ||
+    null;
+
+  return {
+    ...producto,
+    imagenUrl: url,
+    imagen_url: url,
+  };
+}
 
 @Injectable({ providedIn: 'root' })
 export class ProductoService {
@@ -32,7 +79,8 @@ export class ProductoService {
       .pipe(
         tap({
           next: (pagina) => {
-            this.productos.set(pagina.items);
+            const enriquecidos = pagina.items.map(enriquecerProducto);
+            this.productos.set(enriquecidos);
             this.total.set(pagina.total_registros);
             this.cargando.set(false);
           },
@@ -50,17 +98,30 @@ export class ProductoService {
 
   /** GET /productos/{id_producto} */
   obtenerPorId(idProducto: number): Observable<Producto> {
-    return this.http.get<Producto>(`${API_URL}/productos/${idProducto}`);
+    return this.http
+      .get<Producto>(`${API_URL}/productos/${idProducto}`)
+      .pipe(tap({ next: (p) => enriquecerProducto(p) }));
   }
 
-  /** POST /productos/ — añade el nuevo producto al listado. */
+  /** POST /productos/ — añade el nuevo producto al listado y persiste su imagen. */
   crear(producto: ProductoCreate): Observable<Producto> {
     this.error.set(null);
+
+    const urlImagen = producto.imagenUrl || producto.imagen_url || null;
 
     return this.http.post<Producto>(`${API_URL}/productos/`, producto).pipe(
       tap({
         next: (nuevo) => {
-          this.productos.set([...this.productos(), nuevo]);
+          if (urlImagen) {
+            guardarImagenLocal(nuevo.id_producto, urlImagen);
+            guardarImagenLocal(nuevo.codigo, urlImagen);
+          }
+          const nuevoEnriquecido = enriquecerProducto({
+            ...nuevo,
+            imagenUrl: urlImagen,
+            imagen_url: urlImagen,
+          });
+          this.productos.set([...this.productos(), nuevoEnriquecido]);
           this.total.update((t) => t + 1);
         },
         error: () => this.error.set('No se pudo crear el producto.'),
@@ -72,14 +133,24 @@ export class ProductoService {
   actualizar(producto: ProductoUpdate): Observable<Producto> {
     this.error.set(null);
 
+    const urlImagen = producto.imagenUrl || producto.imagen_url || null;
+    guardarImagenLocal(producto.id_producto, urlImagen);
+    guardarImagenLocal(producto.codigo, urlImagen);
+
     return this.http.put<Producto>(`${API_URL}/productos/`, producto).pipe(
       tap({
-        next: (actualizado) =>
+        next: (actualizado) => {
+          const enriquecido = enriquecerProducto({
+            ...actualizado,
+            imagenUrl: urlImagen,
+            imagen_url: urlImagen,
+          });
           this.productos.set(
             this.productos().map((p) =>
-              p.id_producto === actualizado.id_producto ? actualizado : p,
+              p.id_producto === enriquecido.id_producto ? enriquecido : p,
             ),
-          ),
+          );
+        },
         error: () => this.error.set('No se pudo actualizar el producto.'),
       }),
     );

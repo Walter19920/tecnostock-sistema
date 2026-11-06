@@ -1,1 +1,1 @@
-export interface Movimiento {}
+export * from '../interfaces/movimiento.interface';

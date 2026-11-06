@@ -10,6 +10,7 @@ import {
   Rol,
   Usuario,
 } from '../interfaces/auth.interface';
+import { UsuarioItem } from '../interfaces/usuario.interface';
 
 const API_URL = 'http://localhost:8000';
 /** Clave de almacenamiento del token en localStorage. */
@@ -77,8 +78,8 @@ export class AuthService {
       if (raw) {
         const lista = JSON.parse(raw);
         if (Array.isArray(lista)) {
-          const encontrado = lista.find(
-            (item: any) => item?.username && item.username.toLowerCase() === u,
+          const encontrado = (lista as UsuarioItem[]).find(
+            (item: UsuarioItem) => item?.username && item.username.toLowerCase() === u,
           );
           if (encontrado) {
             const r = (encontrado.rol || '').toUpperCase();

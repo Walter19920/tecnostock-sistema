@@ -11,6 +11,8 @@ export interface Producto {
   stock_actual: number;
   stock_minimo: number;
   activo: boolean;
+  imagenUrl?: string | null;
+  imagen_url?: string | null;
 }
 
 /** Payload para crear un producto (schema ProductoCreate). */
@@ -23,6 +25,8 @@ export interface ProductoCreate {
   precio_venta: number;
   stock_inicial?: number;
   stock_minimo: number;
+  imagenUrl?: string | null;
+  imagen_url?: string | null;
 }
 
 /** Payload para actualizar un producto (schema ProductoUpdate; no modifica stock). */
@@ -35,4 +39,6 @@ export interface ProductoUpdate {
   precio_compra: number;
   precio_venta: number;
   stock_minimo: number;
+  imagenUrl?: string | null;
+  imagen_url?: string | null;
 }
