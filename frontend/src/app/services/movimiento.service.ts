@@ -9,8 +9,9 @@ import {
   SalidaCreate,
 } from '../interfaces/movimiento.interface';
 import { Paginacion } from '../interfaces/paginacion.interface';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class MovimientoService {

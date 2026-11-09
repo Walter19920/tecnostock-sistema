@@ -4,8 +4,9 @@ import { Observable, tap } from 'rxjs';
 
 import { Producto, ProductoCreate, ProductoUpdate } from '../interfaces/producto.interface';
 import { Paginacion, ParametrosPaginacion } from '../interfaces/paginacion.interface';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = environment.apiUrl;
 const CLAVE_IMAGENES_LOCAL = 'tecnostock_productos_imagenes';
 
 /**
