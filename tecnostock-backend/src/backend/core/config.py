@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     DB_NOMBRE: str
+    DB_DRIVER: str = "ODBC Driver 18 for SQL Server"
     FRONTEND_ORIGINS: str  # Orígenes separados por coma, ej: "http://localhost:5173,http://localhost:3000"
 
     class Config:
