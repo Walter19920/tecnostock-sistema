@@ -2,13 +2,10 @@ import { Injectable, inject, signal } from '@angular/core';
 import { HttpClient, HttpErrorResponse } from '@angular/common/http';
 import { Observable, tap } from 'rxjs';
 
-import {
-  Categoria,
-  CategoriaCreate,
-  CategoriaUpdate,
-} from '../interfaces/categoria.interface';
+import { Categoria, CategoriaCreate, CategoriaUpdate } from '../interfaces/categoria.interface';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = environment.apiUrl;
 
 @Injectable({ providedIn: 'root' })
 export class CategoriaService {

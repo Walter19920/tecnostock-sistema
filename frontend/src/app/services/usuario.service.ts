@@ -4,8 +4,9 @@ import { Observable, catchError, of, tap, throwError } from 'rxjs';
 
 import { UsuarioCreate, UsuarioItem } from '../interfaces/usuario.interface';
 import { CLAVE_USUARIOS_LOCAL } from './auth.service';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = environment.apiUrl;
 
 /** Usuarios semilla predeterminados para visualización inicial si la API no está disponible */
 const USUARIOS_SEMILLA: UsuarioItem[] = [

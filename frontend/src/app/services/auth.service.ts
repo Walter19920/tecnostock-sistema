@@ -11,8 +11,9 @@ import {
   Usuario,
 } from '../interfaces/auth.interface';
 import { UsuarioItem } from '../interfaces/usuario.interface';
+import { environment } from '../../environments/environment';
 
-const API_URL = 'http://localhost:8000';
+const API_URL = environment.apiUrl;
 /** Clave de almacenamiento del token en localStorage. */
 export const CLAVE_TOKEN = 'token';
 const CLAVE_TOKEN_LEGADO = 'tecnostock_token';
@@ -208,7 +209,7 @@ export class AuthService {
   /** Traduce la respuesta HTTP de error a un mensaje amigable para el login. */
   private mensajeError(err: HttpErrorResponse): string {
     if (err.status === 0) {
-      return 'No se pudo conectar con el backend (http://localhost:8000). Verifica que esté en ejecución.';
+      return `No se pudo conectar con el backend (${environment.apiUrl}). Verifica que esté en ejecución.`;
     }
     const detalle = err.error?.detail;
     if (typeof detalle === 'string' && detalle.trim()) {
