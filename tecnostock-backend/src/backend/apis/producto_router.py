@@ -22,15 +22,16 @@ router = APIRouter(prefix="/productos", tags=["Productos"])
     "/",
     response_model=PaginacionResponse[ProductoOut],
     summary="Listar productos paginado",
-    description="Retorna una página de productos con filtro de búsqueda opcional por nombre.",
+    description="Retorna una página de productos con filtro opcional por nombre y estado.",
 )
 def listar_productos(
     pagina: int = Query(default=1, ge=1, description="Número de página (base 1)"),
     tamanio_pagina: int = Query(default=10, ge=1, le=100, description="Registros por página"),
     busqueda: str | None = Query(default=None, description="Filtro por nombre del producto"),
+    solo_activos: bool | None = Query(default=False, description="Filtrar solo activos (False para traer todos)"),
 ) -> PaginacionResponse[ProductoOut]:
     """Lista productos con paginación."""
-    return producto_service.listar_productos_paginado(pagina, tamanio_pagina, busqueda)
+    return producto_service.listar_productos_paginado(pagina, tamanio_pagina, busqueda, solo_activos)
 
 
 @router.get(
