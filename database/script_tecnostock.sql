@@ -163,7 +163,7 @@ BEGIN
     SET NOCOUNT ON;
     SELECT id_categoria, nombre, descripcion, activo
     FROM Categorias
-    ORDER BY nombre ASC;
+    ORDER BY id_categoria ASC;
 END;
 GO
 
@@ -562,3 +562,4 @@ UPDATE Usuarios
 SET password_hash = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'
 WHERE username = 'admin';
 GO
+

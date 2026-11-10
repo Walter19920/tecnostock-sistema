@@ -58,7 +58,7 @@ def listar_productos_paginado(
     tamanio_pagina: int = 10,
     busqueda: str | None = None,
     id_categoria: int | None = None,
-    activo: bool | None = True,
+    activo: bool | None = None,
 ) -> tuple[list[dict], int]:
     """
     Obtiene una página de productos con filtros opcionales.

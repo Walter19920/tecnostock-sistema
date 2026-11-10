@@ -37,6 +37,10 @@ Para iniciar la API en modo de desarrollo
 uv run uvicorn main:app --app-dir src/backend
 
 
+Para iniciar con python devido a control de aplicaciones de windows
+
+python -m uvicorn main:app --app-dir src/backend
+
 Credenciales de Prueba
 
 Rol	           Username	  Contraseña

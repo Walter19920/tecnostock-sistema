@@ -12,4 +12,5 @@ export interface ParametrosPaginacion {
   pagina?: number;
   tamanio_pagina?: number;
   busqueda?: string;
+  solo_activos?: boolean;
 }
