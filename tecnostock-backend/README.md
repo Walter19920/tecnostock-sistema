@@ -33,6 +33,7 @@ Instalar dependencias con uv
 
   Ejecuta el siguiente comando para sincronizar el entorno virtual e instalar todas las librerías necesarias
   uv sync
+  uv sync --no-install-project
 
 
 Opcion estandar para iniciar la API en modo de desarrollo
