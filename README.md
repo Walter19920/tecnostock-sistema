@@ -8,42 +8,37 @@ El proyecto cumple al 100% con los requerimientos académicos: arquitectura por 
 
 ## 🏗️ Estructura Completa del Repositorio y Mapeo con la Rúbrica
 
-
 Examen Unidad 3-Desarrollo De aplicaciones web/
-│
-├── 📁 database/                       # Capa de Persistencia Relacional
-│   └── script_master.sql              # Script SQL unificado (Tablas, SPs, Transacciones y Seed Data)
-│
-├── 📁 tecnostock-backend/             # Backend: FastAPI con Arquitectura por Capas
+├── 📁 database/ # Capa de Persistencia Relacional
+│   └── 📄 script_master.sql # Script SQL unificado (Tablas, SPs, Transacciones y Seed Data)
+├── 📁 tecnostock-backend/ # Backend: FastAPI con Arquitectura por Capas
 │   ├── 📁 src/backend/
-│   │   ├── 📁 apis/                   # Controladores REST / Endpoints (FastAPI Routers)
-│   │   ├── 📁 core/                   # Seguridad (bcrypt/JWT), conexión DB y configuración
-│   │   ├── 📁 repositories/           # Persistencia pura (Invocación exclusiva a SPs)
-│   │   ├── 📁 schemas/                # Validación Pydantic (RN08)
-│   │   ├── 📁 services/               # Lógica de Negocio y Reglas del Sistema
-│   │   └── main.py                    # Punto de entrada de la API
-│   ├── .env                           # Variables de entorno (Credenciales seguras)
-│   ├── pyproject.toml                 # Configuración de dependencias con uv
-│   ├── requirements.txt               # Lista de librerías Python
-│   └── uv.lock                        # Bloqueo de versiones del entorno
-│
-└── 📁 frontend/                       # Frontend: Angular 22 + Signal Forms
+│   │   ├── 📁 apis/ # Controladores REST / Endpoints (FastAPI Routers)
+│   │   ├── 📁 core/ # Seguridad (bcrypt/JWT), conexión DB y configuración
+│   │   ├── 📁 repositorios/ # Persistencia pura (Invocación exclusiva a SPs)
+│   │   ├── 📁 esquemas/ # Validación Pydantic (RN08)
+│   │   ├── 📁 servicios/ # Lógica de Negocio y Reglas del Sistema
+│   │   └── 📄 main.py # Punto de entrada de la API
+│   ├── 📄 .env # Variables de entorno (Credenciales seguras)
+│   ├── 📄 pyproject.toml # Configuración de dependencias con uv
+│   ├── 📄 requisitos.txt # Lista de librerías Python
+│   └── 📄 uv.lock # Bloqueo de versiones del entorno
+└── 📁 frontend/ # Frontend: Angular 22 + Signal Forms
     └── 📁 src/
         ├── 📁 app/
-        │   ├── 📁 components/         # Vistas UI (Dashboard, Productos, Categorías, Movimientos, Login)
-        │   ├── 📁 guards/             # Protección de rutas por roles (ADMIN/ALMACENERO)
-        │   ├── 📁 interceptors/       # Interceptor HTTP para inyección de Token JWT
-        │   ├── 📁 interfaces/         # Contratos y tipos TypeScript
-        │   ├── 📁 models/             # Modelos de datos del cliente
-        │   ├── 📁 services/           # Consumo de API REST vía HttpClient
-        │   ├── 📁 utils/              # Helper functions y formateadores visuales
-        │   ├── app.config.ts          # Configuración global de providers (HttpClient, Routes)
-        │   ├── app.routes.ts          # Enrutamiento de la aplicación SPA
-        │   └── app.ts                 # Componente raíz
-        ├── 📁 environments/           # Variables de entorno del Frontend
-        ├── main.ts                    # Bootstrap de Angular
-        └── styles.css                 # Estilos globales / Tailwind
-```
+        │   ├── 📁 componentes/ # Vistas UI (Dashboard, Productos, Categorías, Movimientos, Login)
+        │   ├── 📁 guards/ # Protección de rutas por roles (ADMIN/ALMACENERO)
+        │   ├── 📁 interceptors/ # Interceptor HTTP para inyección de Token JWT
+        │   ├── 📁 interfaces/ # Contratos y tipos TypeScript
+        │   ├── 📁 models/ # Modelos de datos del cliente
+        │   ├── 📁 servicios/ # Consumo de API REST vía HttpClient
+        │   ├── 📁 utils/ # Funciones auxiliares y formateadores visuales
+        │   ├── 📄 app.config.ts # Configuración global de proveedores (HttpClient, Routes)
+        │   ├── 📄 app.routes.ts # Enrutamiento de la aplicación SPA
+        │   └── 📄 app.ts # Componente raíz
+        ├── 📁 entornos/ # Variables de entorno del Frontend
+        ├── 📄 main.ts # Bootstrap de Angular
+        └── 📄 estilos.css # Estilos globales / Tailwind
 
 ---
 
