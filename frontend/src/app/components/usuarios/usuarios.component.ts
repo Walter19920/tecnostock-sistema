@@ -5,6 +5,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Rol } from '../../interfaces/auth.interface';
 import { UsuarioCreate, UsuarioItem } from '../../interfaces/usuario.interface';
 import { UsuarioService } from '../../services/usuario.service';
+import { AuthService } from '../../services/auth.service';
 
 @Component({
   selector: 'app-usuarios',
@@ -319,6 +320,12 @@ import { UsuarioService } from '../../services/usuario.service';
 
                     <!-- ACCIONES -->
                     <td class="pe-4 text-end">
+                      <button 
+                        class="btn btn-sm btn-outline-warning me-2" 
+                        title="Cambiar contraseña"
+                        (click)="resetearPassword(usuario)">
+                        <i class="bi bi-key-fill"></i>
+                      </button>
                       <button
                         class="btn btn-light btn-sm rounded-3 border-0 shadow-sm me-1"
                         [class.text-danger]="usuario.activo"
@@ -581,6 +588,7 @@ import { UsuarioService } from '../../services/usuario.service';
 })
 export class UsuariosComponent implements OnInit {
   protected readonly servicio = inject(UsuarioService);
+  protected readonly authService = inject(AuthService);
   private readonly fb = inject(FormBuilder);
 
   /** Signals de estado del componente */
@@ -681,14 +689,24 @@ export class UsuariosComponent implements OnInit {
   }
 
   alternarEstado(usuario: UsuarioItem): void {
-    this.servicio.cambiarEstado(usuario.id_usuario);
-    this.exitoMensaje.set(
-      `Estado de "${usuario.nombre_completo || usuario.username}" actualizado a ${
-        !usuario.activo ? 'Activo' : 'Inactivo'
-      }.`,
-    );
-    setTimeout(() => this.exitoMensaje.set(null), 3500);
-  }
+  const nuevoEstado = !usuario.activo;
+
+  this.servicio.cambiarEstado(usuario.id_usuario, nuevoEstado).subscribe({
+    next: () => {
+      this.exitoMensaje.set(
+        `Estado de "${usuario.nombre_completo || usuario.username}" actualizado a ${
+          nuevoEstado ? 'Activo' : 'Inactivo'
+        }.`,
+      );
+      setTimeout(() => this.exitoMensaje.set(null), 3500);
+    },
+    error: (err) => {
+      console.error('Error al cambiar estado del usuario:', err);
+      this.exitoMensaje.set('No se pudo actualizar el estado del usuario en la base de datos.');
+      setTimeout(() => this.exitoMensaje.set(null), 3500);
+    },
+  });
+}
 
   esInvalido(campo: string): boolean {
     const control = this.formulario.get(campo);
@@ -740,6 +758,27 @@ export class UsuariosComponent implements OnInit {
           err?.error?.detail || 'No se pudo registrar el usuario. Revisa los datos ingresados.',
         );
       },
+    });
+  }
+  resetearPassword(usuario: any): void {
+    const nuevaPassword = prompt(`Ingrese la nueva contraseña para "${usuario.nombre_completo || usuario.username}":`);
+    
+    if (nuevaPassword === null) return; // Si hace clic en Cancelar
+
+    if (nuevaPassword.trim().length < 6) {
+      alert('La contraseña debe tener al menos 6 caracteres.');
+      return;
+    }
+
+    this.servicio.cambiarPassword(usuario.id_usuario, nuevaPassword.trim()).subscribe({
+      next: () => {
+        this.exitoMensaje.set(`Contraseña actualizada correctamente para "${usuario.nombre_completo || usuario.username}".`);
+        setTimeout(() => this.exitoMensaje.set(null), 4000);
+      },
+      error: (err) => {
+        console.error('Error al cambiar contraseña:', err);
+        alert(err?.error?.detail || 'No se pudo actualizar la contraseña.');
+      }
     });
   }
 }
