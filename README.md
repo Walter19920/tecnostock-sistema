@@ -7,7 +7,7 @@ El proyecto cumple al 100% con los requerimientos académicos: arquitectura por 
 ---
 
 ## 🏗️ Estructura Completa del Repositorio y Mapeo con la Rúbrica
-
+```text
 Examen Unidad 3-Desarrollo De aplicaciones web/
 ├── 📁 database/ # Capa de Persistencia Relacional
 │   └── 📄 script_master.sql # Script SQL unificado (Tablas, SPs, Transacciones y Seed Data)
@@ -39,7 +39,7 @@ Examen Unidad 3-Desarrollo De aplicaciones web/
         ├── 📁 entornos/ # Variables de entorno del Frontend
         ├── 📄 main.ts # Bootstrap de Angular
         └── 📄 estilos.css # Estilos globales / Tailwind
-
+```
 ---
 
 ## 📑 Explicación de Módulos y Relación con la Rúbrica de Evaluación
@@ -92,6 +92,7 @@ Examen Unidad 3-Desarrollo De aplicaciones web/
 3. Sincroniza las dependencias con `uv`:
    ```
    uv sync
+   uv sync --no-install-project
    ```
 
 4. **Iniciar el servidor de desarrollo:**
