@@ -1,0 +1,24 @@
+.producto-img-box {
+  width: 42px;
+  height: 42px;
+  min-width: 42px;
+  transition:
+    transform 0.2s ease,
+    box-shadow 0.2s ease;
+}
+.producto-img-box:hover {
+  transform: scale(1.08);
+  box-shadow: 0 4px 12px rgba(15, 23, 42, 0.15) !important;
+}
+.placeholder-gradiente {
+  background: linear-gradient(135deg, #eff6ff 0%, #e0e7ff 100%);
+}
+.fs-7 {
+  font-size: 0.75rem;
+}
+.fs-8 {
+  font-size: 0.65rem;
+}
+.object-fit-cover {
+  object-fit: cover !important;
+}

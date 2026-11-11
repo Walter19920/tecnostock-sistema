@@ -1,0 +1,526 @@
+<div class="container-fluid py-4 px-4">
+  <!-- CABECERA DE LA VISTA -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h3 fw-bold text-dark mb-0">Historial de Movimientos</h1>
+        <span class="badge bg-primary bg-opacity-10 text-primary rounded-pill px-3 py-1">
+          {{ servicio.total() || servicio.movimientos().length }} registros
+        </span>
+      </div>
+      <p class="text-muted small mb-0 mt-1">
+        Consulta paginada de entradas, salidas y kardex general de almacén
+      </p>
+    </div>
+
+    <button
+      class="btn btn-primary d-inline-flex align-items-center gap-2 shadow-sm"
+      type="button"
+      (click)="abrirNuevo()"
+    >
+      <i class="bi bi-plus-lg"></i>
+      <span>Nuevo movimiento</span>
+    </button>
+  </div>
+
+  <!-- BARRA DE FILTROS AVANZADA: PRODUCTO, TIPO Y BÚSQUEDA -->
+  <div class="card border-0 shadow-sm rounded-4 mb-4 p-3 bg-white">
+    <div class="row g-2 align-items-end">
+      <!-- FILTRO POR PRODUCTO -->
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          <i class="bi bi-box-seam me-1"></i>Producto
+        </label>
+        <div class="input-group input-group-sm">
+          <select
+            class="form-select rounded-3"
+            [ngModel]="filtroProducto()"
+            (ngModelChange)="filtroProducto.set($event ? +$event : null); aplicarFiltros()"
+          >
+            <option [ngValue]="null">Todos los productos</option>
+            @for (prod of productos.productos(); track prod.id_producto) {
+              <option [ngValue]="prod.id_producto">
+                {{ prod.nombre }} ({{ prod.codigo }})
+              </option>
+            }
+          </select>
+        </div>
+      </div>
+
+      <!-- FILTRO POR RANGO DE FECHAS: DESDE -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          <i class="bi bi-calendar-event me-1"></i>Fecha Desde
+        </label>
+        <input
+          type="date"
+          class="form-control form-control-sm rounded-3"
+          aria-label="Fecha inicial del historial"
+          [ngModel]="filtroFechaInicio()"
+          (ngModelChange)="filtroFechaInicio.set($event); aplicarFiltros()"
+        />
+      </div>
+
+      <!-- FILTRO POR RANGO DE FECHAS: HASTA -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          <i class="bi bi-calendar-check me-1"></i>Fecha Hasta
+        </label>
+        <input
+          type="date"
+          class="form-control form-control-sm rounded-3"
+          aria-label="Fecha final del historial"
+          [ngModel]="filtroFechaFin()"
+          (ngModelChange)="filtroFechaFin.set($event); aplicarFiltros()"
+        />
+      </div>
+
+      <!-- FILTRO POR TIPO DE MOVIMIENTO -->
+      <div class="col-6 col-md-2">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          <i class="bi bi-funnel me-1"></i>Tipo
+        </label>
+        <select
+          class="form-select form-select-sm rounded-3"
+          [ngModel]="filtroTipo()"
+          (ngModelChange)="filtroTipo.set($event); aplicarFiltros()"
+        >
+          <option value="">Todos los tipos</option>
+          <option value="ENTRADA">📥 Entrada</option>
+          <option value="SALIDA">📤 Salida</option>
+        </select>
+      </div>
+
+      <!-- BUSCADOR RÁPIDO (USUARIO O MOTIVO) -->
+      <div class="col-12 col-md-3">
+        <label class="form-label small fw-semibold text-secondary mb-1">
+          <i class="bi bi-search me-1"></i>Buscar
+        </label>
+        <div class="input-group input-group-sm">
+          <input
+            type="text"
+            class="form-control rounded-start-3"
+            placeholder="Usuario o motivo..."
+            [ngModel]="filtroTexto()"
+            (ngModelChange)="filtroTexto.set($event); aplicarFiltros()"
+          />
+          @if (filtroTexto()) {
+            <button
+              class="btn btn-outline-secondary rounded-end-3"
+              type="button"
+              (click)="filtroTexto.set(''); aplicarFiltros()"
+            >
+              <i class="bi bi-x"></i>
+            </button>
+          }
+        </div>
+      </div>
+
+      <!-- BOTÓN LIMPIAR FILTROS -->
+      @if (
+        filtroTipo() ||
+        filtroProducto() !== null ||
+        filtroFechaInicio() ||
+        filtroFechaFin() ||
+        filtroTexto()
+      ) {
+        <div class="col-12 text-end pt-2">
+          <button
+            class="btn btn-sm btn-outline-secondary border-0 d-inline-flex align-items-center gap-1.5"
+            (click)="limpiarFiltros()"
+          >
+            <i class="bi bi-arrow-counterclockwise"></i>
+            <span>Limpiar todos los filtros</span>
+          </button>
+        </div>
+      }
+    </div>
+  </div>
+
+  <!-- TABLA RESPONSIVA DE HISTORIAL DE MOVIMIENTOS -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden mb-4">
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light border-bottom">
+            <tr>
+              <th scope="col" class="ps-4 py-3 text-muted text-uppercase fs-7 font-monospace">
+                Fecha y Hora
+              </th>
+              <th scope="col" class="py-3 text-muted text-uppercase fs-7">Producto</th>
+              <th scope="col" class="py-3 text-muted text-uppercase fs-7">Tipo</th>
+              <th scope="col" class="py-3 text-end text-muted text-uppercase fs-7">Cant.</th>
+              <th scope="col" class="py-3 text-end text-muted text-uppercase fs-7">Stock Ant.</th>
+              <th scope="col" class="py-3 text-end text-muted text-uppercase fs-7">Stock Post.</th>
+              <th scope="col" class="py-3 text-muted text-uppercase fs-7">Usuario</th>
+              <th scope="col" class="pe-4 py-3 text-muted text-uppercase fs-7">Observación</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (movimiento of movimientosFiltrados(); track movimiento.id_movimiento) {
+              <tr>
+                <!-- FECHA Y HORA -->
+                <td class="ps-4 text-nowrap">
+                  <div class="d-flex align-items-center gap-1.5 text-secondary font-monospace small">
+                    <i class="bi bi-clock text-muted"></i>
+                    <span>{{ movimiento.fecha | date: 'dd/MM/yyyy HH:mm' }}</span>
+                  </div>
+                </td>
+
+                <!-- PRODUCTO -->
+                <td>
+                  <div class="d-flex align-items-center gap-2.5">
+                    <div
+                      class="bg-primary bg-opacity-10 text-primary rounded-2 p-1.5 d-flex align-items-center justify-content-center flex-shrink-0"
+                      style="width: 34px; height: 34px"
+                    >
+                      <i class="bi bi-box-seam-fill fs-6"></i>
+                    </div>
+                    <span class="fw-bold text-dark">{{ movimiento.producto }}</span>
+                  </div>
+                </td>
+
+                <!-- TIPO CON BADGES DIFERENCIADOS: ENTRADA (VERDE SUAVE) Y SALIDA (ROJO SUAVE) -->
+                <td>
+                  @if (movimiento.tipo === 'ENTRADA') {
+                    <span
+                      class="badge bg-success bg-opacity-10 text-success border border-success border-opacity-25 rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold"
+                    >
+                      <i class="bi bi-arrow-down-left fs-7"></i>
+                      <span>ENTRADA</span>
+                    </span>
+                  } @else {
+                    <span
+                      class="badge bg-danger bg-opacity-10 text-danger border border-danger border-opacity-25 rounded-pill px-3 py-1.5 d-inline-flex align-items-center gap-1.5 fw-semibold"
+                    >
+                      <i class="bi bi-arrow-up-right fs-7"></i>
+                      <span>SALIDA</span>
+                    </span>
+                  }
+                </td>
+
+                <!-- CANTIDAD -->
+                <td class="text-end font-monospace fw-bold text-dark">
+                  {{ movimiento.cantidad }}
+                </td>
+
+                <!-- STOCK ANTERIOR -->
+                <td class="text-end font-monospace text-secondary">
+                  {{ movimiento.stock_anterior }}
+                </td>
+
+                <!-- STOCK POSTERIOR -->
+                <td class="text-end font-monospace fw-bold text-dark">
+                  {{ movimiento.stock_posterior }}
+                </td>
+
+                <!-- USUARIO -->
+                <td>
+                  <span
+                    class="badge bg-light text-secondary border border-slate-200 px-2.5 py-1 rounded-2 font-monospace fw-normal"
+                  >
+                    <i class="bi bi-person-fill me-1 text-slate-400"></i>{{
+                      movimiento.usuario || 'Sistema'
+                    }}
+                  </span>
+                </td>
+
+                <!-- OBSERVACIÓN -->
+                <td class="pe-4">
+                  <span
+                    class="text-secondary small text-truncate d-inline-block"
+                    style="max-width: 220px"
+                    [title]="movimiento.observacion"
+                  >
+                    {{ movimiento.observacion || '-' }}
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="8" class="text-center text-muted py-5">
+                  @if (servicio.cargando()) {
+                    <div class="d-flex flex-column align-items-center gap-2">
+                      <div
+                        class="spinner-border text-primary spinner-border-sm"
+                        role="status"
+                      ></div>
+                      <span class="small">Cargando historial de movimientos…</span>
+                    </div>
+                  } @else {
+                    <div class="d-flex flex-column align-items-center gap-2 py-3">
+                      <i class="bi bi-arrow-left-right fs-1 text-slate-300"></i>
+                      <p class="mb-0 text-secondary fw-medium">No hay movimientos registrados con los filtros aplicados</p>
+                      <button class="btn btn-sm btn-outline-primary mt-2" (click)="abrirNuevo()">
+                        Registrar primer movimiento
+                      </button>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- CARD FOOTER CON BOTONES DE PAGINACIÓN MODERNOS -->
+    <div
+      class="card-footer bg-light border-top px-4 py-3 d-flex flex-column flex-md-row justify-content-between align-items-center gap-3"
+    >
+      <div class="d-flex align-items-center gap-3 text-muted small">
+        <span
+          >Mostrando {{ movimientosFiltrados().length }} de
+          {{ servicio.total() || servicio.movimientos().length }} registro(s)</span
+        >
+        <div class="d-flex align-items-center gap-1">
+          <span>Ver:</span>
+          <select
+            class="form-select form-select-sm font-monospace rounded-3"
+            style="width: 75px"
+            [ngModel]="tamanioPagina()"
+            (ngModelChange)="cambiarTamanio($event)"
+          >
+            <option [ngValue]="10">10</option>
+            <option [ngValue]="20">20</option>
+            <option [ngValue]="50">50</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- BOTONES DE PAGINACIÓN MODERNOS CON HOVER, SOMBRA AZUL Y BORDER-RADIUS 8PX -->
+      <div class="ts-pagination" role="group" aria-label="Paginación">
+        <button
+          type="button"
+          class="ts-page-btn"
+          [disabled]="paginaActual() === 1 || servicio.cargando()"
+          (click)="paginaAnterior()"
+        >
+          <i class="bi bi-chevron-left"></i>
+          <span>Anterior</span>
+        </button>
+
+        <span class="ts-page-badge">
+          Página {{ paginaActual() }}
+        </span>
+
+        <button
+          type="button"
+          class="ts-page-btn"
+          [disabled]="movimientosFiltrados().length < tamanioPagina() || servicio.cargando()"
+          (click)="paginaSiguiente()"
+        >
+          <span>Siguiente</span>
+          <i class="bi bi-chevron-right"></i>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL POP-UP REGISTRAR MOVIMIENTO -->
+  @if (modalAbierto()) {
+    <div
+      class="modal fade show d-block"
+      tabindex="-1"
+      role="dialog"
+      aria-modal="true"
+      style="background-color: rgba(15, 23, 42, 0.5); backdrop-filter: blur(4px)"
+    >
+      <div class="modal-dialog modal-dialog-centered modal-dialog-scrollable">
+        <form
+          class="modal-content border-0 shadow-lg rounded-4 overflow-hidden"
+          (ngSubmit)="guardar()"
+          novalidate
+        >
+          <!-- MODAL HEADER -->
+          <div class="modal-header bg-light border-bottom px-4 py-3">
+            <div class="d-flex align-items-center gap-2">
+              <div
+                class="bg-primary text-white rounded-2 p-1.5 d-flex align-items-center justify-content-center"
+                style="width: 28px; height: 28px"
+              >
+                <i class="bi bi-arrow-left-right fs-6"></i>
+              </div>
+              <h2 class="modal-title h6 fw-bold text-dark mb-0">
+                Registrar Movimiento de Inventario
+              </h2>
+            </div>
+            <button
+              class="btn-close shadow-none"
+              type="button"
+              aria-label="Cerrar"
+              (click)="cerrarModal()"
+            ></button>
+          </div>
+
+          <!-- MODAL BODY -->
+          <div class="modal-body p-4">
+            <!-- PRODUCTO SELECT -->
+            <div class="mb-3">
+              <label class="form-label small fw-semibold text-secondary" for="mov-producto">
+                Producto de inventario *
+              </label>
+              <select
+                class="form-select rounded-3 py-2 px-3"
+                id="mov-producto"
+                name="id_producto"
+                [class.is-invalid]="enviado() && !productoId()"
+                [ngModel]="productoId()"
+                (ngModelChange)="seleccionarProducto($event)"
+              >
+                <option [ngValue]="null" disabled>Selecciona un producto...</option>
+                @for (producto of productos.productos(); track producto.id_producto) {
+                  <option [ngValue]="producto.id_producto">
+                    {{ producto.nombre }} ({{ producto.codigo }}) — Stock:
+                    {{ producto.stock_actual }} un.
+                  </option>
+                }
+              </select>
+              <div class="invalid-feedback">Selecciona un producto.</div>
+
+              <!-- PANEL INFORMATIVO DE STOCK DISPONIBLE -->
+              @if (productoSeleccionado(); as prod) {
+                <div
+                  class="mt-2.5 p-2.5 px-3 rounded-3 border d-flex align-items-center justify-content-between"
+                  [class.bg-light]="!stockInsuficiente()"
+                  [class.bg-danger-subtle]="stockInsuficiente()"
+                  [class.border-danger-subtle]="stockInsuficiente()"
+                >
+                  <div class="d-flex align-items-center gap-2">
+                    <i
+                      class="bi"
+                      [class.bi-box-seam]="!stockInsuficiente()"
+                      [class.bi-exclamation-octagon-fill]="stockInsuficiente()"
+                      [class.text-danger]="stockInsuficiente()"
+                      [class.text-primary]="!stockInsuficiente()"
+                    ></i>
+                    <div>
+                      <span class="small fw-semibold text-secondary d-block">
+                        Stock actual disponible:
+                      </span>
+                      <span
+                        class="fw-bold font-monospace"
+                        [class.text-danger]="prod.stock_actual <= 0"
+                        [class.text-dark]="prod.stock_actual > 0"
+                      >
+                        {{ prod.stock_actual }} unidades
+                      </span>
+                    </div>
+                  </div>
+                  <span
+                    class="badge rounded-pill px-3 py-1"
+                    [class.bg-danger]="prod.stock_actual <= 0"
+                    [class.bg-warning-subtle]="
+                      prod.stock_actual > 0 && prod.stock_actual <= prod.stock_minimo
+                    "
+                    [class.text-warning-emphasis]="
+                      prod.stock_actual > 0 && prod.stock_actual <= prod.stock_minimo
+                    "
+                    [class.bg-success]="prod.stock_actual > prod.stock_minimo"
+                  >
+                    {{
+                      prod.stock_actual <= 0
+                        ? 'Agotado'
+                        : prod.stock_actual <= prod.stock_minimo
+                          ? 'Stock bajo'
+                          : 'Stock suficiente'
+                    }}
+                  </span>
+                </div>
+              }
+            </div>
+
+            <div class="row g-3">
+              <!-- TIPO DE MOVIMIENTO -->
+              <div class="col-6">
+                <label class="form-label small fw-semibold text-secondary" for="mov-tipo">
+                  Tipo de movimiento *
+                </label>
+                <select
+                  class="form-select rounded-3 py-2 px-3 fw-medium"
+                  id="mov-tipo"
+                  name="tipo"
+                  [ngModel]="tipo()"
+                  (ngModelChange)="cambiarTipo($event)"
+                >
+                  <option value="ENTRADA">📥 Entrada (Compra)</option>
+                  <option value="SALIDA">📤 Salida (Venta)</option>
+                </select>
+              </div>
+
+              <!-- CANTIDAD CON VALIDACIÓN DE STOCK NEGATIVO -->
+              <div class="col-6">
+                <label class="form-label small fw-semibold text-secondary" for="mov-cantidad">
+                  Cantidad un. *
+                </label>
+                <input
+                  class="form-control rounded-3 py-2 px-3 font-monospace"
+                  id="mov-cantidad"
+                  name="cantidad"
+                  type="number"
+                  min="1"
+                  [class.is-invalid]="(enviado() && cantidad() < 1) || stockInsuficiente()"
+                  [ngModel]="cantidad()"
+                  (ngModelChange)="cambiarCantidad($event)"
+                />
+                @if (stockInsuficiente()) {
+                  <div class="invalid-feedback d-block fw-semibold text-danger">
+                    <i class="bi bi-exclamation-triangle-fill me-1"></i>
+                    La cantidad solicitada supera el stock disponible (Stock actual:
+                    {{ stockDisponible() }}).
+                  </div>
+                } @else if (enviado() && cantidad() < 1) {
+                  <div class="invalid-feedback d-block">Debe ser al menos 1.</div>
+                }
+              </div>
+            </div>
+
+            <!-- OBSERVACIÓN -->
+            <div class="mb-3 mt-3">
+              <label class="form-label small fw-semibold text-secondary" for="mov-observacion">
+                Observación o motivo
+              </label>
+              <textarea
+                class="form-control rounded-3 py-2 px-3"
+                id="mov-observacion"
+                name="observacion"
+                rows="2"
+                placeholder="Ej. Compra a proveedor, venta a cliente..."
+                [ngModel]="observacion()"
+                (ngModelChange)="observacion.set($event)"
+              ></textarea>
+            </div>
+          </div>
+
+          <!-- MODAL FOOTER -->
+          <div class="modal-footer bg-light border-top px-4 py-3">
+            <button
+              class="btn btn-outline-secondary rounded-3 px-3 py-2 text-sm fw-semibold"
+              type="button"
+              (click)="cerrarModal()"
+            >
+              Cancelar
+            </button>
+            <button
+              class="btn btn-primary rounded-3 px-4 py-2 text-sm fw-semibold d-inline-flex align-items-center gap-2"
+              type="submit"
+              [disabled]="!formularioValido() || servicio.cargando()"
+            >
+              @if (servicio.cargando()) {
+                <span
+                  class="spinner-border spinner-border-sm"
+                  role="status"
+                  aria-hidden="true"
+                ></span>
+                <span>Procesando…</span>
+              } @else {
+                <i class="bi bi-check-lg"></i>
+                <span>Registrar movimiento</span>
+              }
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  }
+</div>

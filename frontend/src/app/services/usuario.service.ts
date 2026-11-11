@@ -95,15 +95,17 @@ export class UsuarioService {
    * Cambia el estado (Activo/Inactivo) consumiendo el Stored Procedure en SQL Server.
    */
   cambiarEstado(idUsuario: number, activo: boolean): Observable<any> {
-    return this.http.patch(`${API_URL}/auth/usuarios/${idUsuario}/estado?activo=${activo}`, {}).pipe(
-      tap({
-        next: () => {
-          this.usuarios.update((lista) =>
-            lista.map((u) => (u.id_usuario === idUsuario ? { ...u, activo } : u)),
-          );
-        },
-      }),
-    );
+    return this.http
+      .patch(`${API_URL}/auth/usuarios/${idUsuario}/estado?activo=${activo}`, {})
+      .pipe(
+        tap({
+          next: () => {
+            this.usuarios.update((lista) =>
+              lista.map((u) => (u.id_usuario === idUsuario ? { ...u, activo } : u)),
+            );
+          },
+        }),
+      );
   }
   /**
    * PATCH /auth/usuarios/{id}/password
@@ -111,7 +113,7 @@ export class UsuarioService {
    */
   cambiarPassword(idUsuario: number, nuevaPassword: string): Observable<any> {
     return this.http.patch(`${API_URL}/auth/usuarios/${idUsuario}/password`, {
-      nueva_password: nuevaPassword
+      nueva_password: nuevaPassword,
     });
   }
   limpiarError(): void {

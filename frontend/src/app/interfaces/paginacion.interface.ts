@@ -13,4 +13,5 @@ export interface ParametrosPaginacion {
   tamanio_pagina?: number;
   busqueda?: string;
   solo_activos?: boolean;
+  id_categoria?: number;
 }

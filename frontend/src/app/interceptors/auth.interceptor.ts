@@ -9,9 +9,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
   const apiUrl = environment.apiUrl;
 
   // Verifica si la petición va hacia el backend (sea 127.0.0.1 o localhost)
-  const esPeticionApi = req.url.startsWith(apiUrl) || 
-                        req.url.includes('127.0.0.1:8000') || 
-                        req.url.includes('localhost:8000');
+  const esPeticionApi =
+    req.url.startsWith(apiUrl) ||
+    req.url.includes('127.0.0.1:8000') ||
+    req.url.includes('localhost:8000');
 
   if (!esPeticionApi) {
     return next(req);
@@ -24,10 +25,10 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
 
   // Adjunta el token JWT en las cabeceras
   return next(
-    req.clone({ 
-      setHeaders: { 
-        Authorization: `Bearer ${token}` 
-      } 
-    })
+    req.clone({
+      setHeaders: {
+        Authorization: `Bearer ${token}`,
+      },
+    }),
   );
 };

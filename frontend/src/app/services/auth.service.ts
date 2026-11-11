@@ -10,7 +10,6 @@ import {
   Rol,
   Usuario,
 } from '../interfaces/auth.interface';
-import { UsuarioItem } from '../interfaces/usuario.interface';
 import { environment } from '../../environments/environment';
 
 const API_URL = environment.apiUrl;
@@ -20,8 +19,6 @@ const CLAVE_TOKEN_LEGADO = 'tecnostock_token';
 const CLAVE_USUARIO = 'tecnostock_usuario';
 /** Clave del rol activo elegido/guardado en el frontend. */
 export const CLAVE_ROL = 'tecnostock_rol';
-/** Clave donde se almacenan los usuarios creados localmente */
-export const CLAVE_USUARIOS_LOCAL = 'tecnostock_usuarios_local';
 
 /**
  * Normaliza el `rol` crudo devuelto por el backend (p. ej. 'ADMIN',
@@ -64,88 +61,6 @@ export class AuthService {
   readonly rutaInicio = computed(() => (this.esAlmacenero() ? '/almacen/movimientos' : '/admin'));
 
   /**
-   * Identifica si un usuario corresponde a un Almacenero de prueba,
-   * un usuario registrado localmente o una credencial simulada.
-   */
-  esUsuarioAlmaceneroSimulado(usuarioNombre: string): { esAlmacenero: boolean; nombre?: string } {
-    const u = (usuarioNombre || '').trim().toLowerCase();
-    if (!u) {
-      return { esAlmacenero: false };
-    }
-
-    // 1. Revisar en los usuarios guardados en localStorage
-    try {
-      const raw = localStorage.getItem(CLAVE_USUARIOS_LOCAL);
-      if (raw) {
-        const lista = JSON.parse(raw);
-        if (Array.isArray(lista)) {
-          const encontrado = (lista as UsuarioItem[]).find(
-            (item: UsuarioItem) => item?.username && item.username.toLowerCase() === u,
-          );
-          if (encontrado) {
-            const r = (encontrado.rol || '').toUpperCase();
-            if (r === 'ALMACENERO' || r.includes('ALMACEN')) {
-              return {
-                esAlmacenero: true,
-                nombre: encontrado.nombre_completo || encontrado.username,
-              };
-            }
-          }
-        }
-      }
-    } catch {}
-
-    // 2. Verificar casos de prueba / simulados reconocidos (p. ej. "maria", "almacen")
-    if (
-      u === 'maria' ||
-      u.includes('maria') ||
-      u === 'almacen' ||
-      u.includes('almacen') ||
-      u === 'almacenero'
-    ) {
-      const nombre = u.includes('maria') ? 'María Almacenera' : 'Carlos Almacenero';
-      return { esAlmacenero: true, nombre };
-    }
-
-    return { esAlmacenero: false };
-  }
-
-  /**
-   * Autentica localmente un usuario con el rol especificado (fallback offline o datos simulados)
-   * y guarda las credenciales en localStorage.
-   */
-  autenticarLocalmente(
-    usuarioNombre: string,
-    nombreCompleto?: string,
-    rol: Rol = ROL_ALMACENERO,
-  ): AuthResponse {
-    const uLimpio = usuarioNombre.trim();
-    const usuarioObj: Usuario = {
-      id_usuario: Date.now(),
-      username: uLimpio,
-      nombre: nombreCompleto || uLimpio,
-      rol: rol,
-    };
-    const tokenSimulado = `simulated_token_${rol.toLowerCase()}_${Date.now()}`;
-    const respuesta: AuthResponse = {
-      access_token: tokenSimulado,
-      token_type: 'bearer',
-      usuario: usuarioObj,
-    };
-
-    localStorage.setItem(CLAVE_TOKEN, tokenSimulado);
-    localStorage.setItem(CLAVE_USUARIO, JSON.stringify(usuarioObj));
-    localStorage.setItem(CLAVE_ROL, rol);
-    this.token.set(tokenSimulado);
-    this.usuario.set(usuarioObj);
-    this.rol.set(rol);
-    this.cargando.set(false);
-    this.error.set(null);
-
-    return respuesta;
-  }
-
-  /**
    * POST /auth/login — OAuth2 form-urlencoded (username/password vía HttpParams).
    * Guarda access_token en localStorage bajo la clave `token` y actualiza la Signal.
    * El rol activo se resuelve con el que devuelve el backend.
@@ -153,36 +68,36 @@ export class AuthService {
    * se activa el fallback de autenticación local.
    */
   login(usuario: string, password: string): Observable<AuthResponse> {
-  this.cargando.set(false);
-  this.error.set(null);
+    this.cargando.set(false);
+    this.error.set(null);
 
-  const body = new HttpParams().set('username', usuario).set('password', password);
+    const body = new HttpParams().set('username', usuario).set('password', password);
 
-  return this.http
-    .post<AuthResponse>(`${API_URL}/auth/login`, body, {
-      headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
-    })
-    .pipe(
-      tap({
-        next: (respuesta) => {
-          const rolResuelto = normalizarRol(respuesta.usuario?.rol) ?? ROL_ADMIN;
-          localStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
-          localStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.usuario));
-          localStorage.setItem(CLAVE_ROL, rolResuelto);
-          this.token.set(respuesta.access_token);
-          this.usuario.set(respuesta.usuario);
-          this.rol.set(rolResuelto);
-          this.cargando.set(false);
-        },
-      }),
-      catchError((err: HttpErrorResponse) => {
-        // Maneja todos los errores reales enviados por FastAPI (401, 403, 500, etc.)
-        this.cargando.set(false);
-        this.error.set(this.mensajeError(err));
-        return throwError(() => err);
+    return this.http
+      .post<AuthResponse>(`${API_URL}/auth/login`, body, {
+        headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
       })
-    );
-}
+      .pipe(
+        tap({
+          next: (respuesta) => {
+            const rolResuelto = normalizarRol(respuesta.usuario?.rol) ?? ROL_ADMIN;
+            localStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
+            localStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.usuario));
+            localStorage.setItem(CLAVE_ROL, rolResuelto);
+            this.token.set(respuesta.access_token);
+            this.usuario.set(respuesta.usuario);
+            this.rol.set(rolResuelto);
+            this.cargando.set(false);
+          },
+        }),
+        catchError((err: HttpErrorResponse) => {
+          // Maneja todos los errores reales enviados por FastAPI (401, 403, 500, etc.)
+          this.cargando.set(false);
+          this.error.set(this.mensajeError(err));
+          return throwError(() => err);
+        }),
+      );
+  }
 
   /** Cierra la sesión y limpia localStorage. */
   logout(): void {
@@ -202,26 +117,26 @@ export class AuthService {
 
   /** Traduce la respuesta HTTP de error a un mensaje amigable para el login. */
   private mensajeError(err: HttpErrorResponse): string {
-  if (err.status === 0) {
-    return `No se pudo conectar con el backend (${environment.apiUrl}). Verifica que esté en ejecución.`;
-  }
-  
-  const detalle = err.error?.detail;
-  if (typeof detalle === 'string' && detalle.trim()) {
-    return detalle; // Retorna la respuesta exacta de FastAPI (e.g. "El usuario se encuentra inactivo...")
-  }
+    if (err.status === 0) {
+      return `No se pudo conectar con el backend (${environment.apiUrl}). Verifica que esté en ejecución.`;
+    }
 
-  if (err.status === 401) {
-    return 'Usuario o contraseña incorrectos.';
+    const detalle = err.error?.detail;
+    if (typeof detalle === 'string' && detalle.trim()) {
+      return detalle; // Retorna la respuesta exacta de FastAPI (e.g. "El usuario se encuentra inactivo...")
+    }
+
+    if (err.status === 401) {
+      return 'Usuario o contraseña incorrectos.';
+    }
+    if (err.status === 403) {
+      return 'El usuario se encuentra inactivo. Contacte al administrador.';
+    }
+    if (err.status === 422) {
+      return 'Datos de inicio de sesión inválidos.';
+    }
+    return `Error del servidor (${err.status}). Inténtalo de nuevo.`;
   }
-  if (err.status === 403) {
-    return 'El usuario se encuentra inactivo. Contacte al administrador.';
-  }
-  if (err.status === 422) {
-    return 'Datos de inicio de sesión inválidos.';
-  }
-  return `Error del servidor (${err.status}). Inténtalo de nuevo.`;
-}
 
   /** Lee el token; migra la clave antigua `tecnostock_token` si existía. */
   private leerToken(): string | null {
@@ -260,8 +175,8 @@ export class AuthService {
     return normalizarRol(this.leerUsuario()?.rol);
   }
   /**
- * Cambia el estado de un usuario (Activo/Inactivo) consumiendo la API.
- */
+   * Cambia el estado de un usuario (Activo/Inactivo) consumiendo la API.
+   */
   cambiarEstadoUsuario(idUsuario: number, activo: boolean): Observable<any> {
     return this.http.patch(`${API_URL}/auth/usuarios/${idUsuario}/estado?activo=${activo}`, {});
   }

@@ -36,4 +36,7 @@ export interface ParametrosMovimiento {
   tamanio_pagina?: number;
   tipo?: TipoMovimiento;
   id_producto?: number;
+  /** Rango de fechas (formato AAAA-MM-DD) — @fecha_inicio / @fecha_fin del SP. */
+  fecha_inicio?: string;
+  fecha_fin?: string;
 }

@@ -1,0 +1,115 @@
+<div class="container-fluid py-3">
+  <div class="d-flex flex-wrap justify-content-between align-items-end gap-2 mb-4">
+    <div>
+      <h1 class="titulo mb-1"><i class="bi bi-speedometer2"></i>Dashboard</h1>
+      <p class="text-muted mb-0">Resumen general de tu inventario</p>
+    </div>
+    <span class="chip-fecha"><i class="bi bi-calendar3 me-2"></i>{{ hoy }}</span>
+  </div>
+
+  @if (indicador.cargando() && !indicador.dashboard()) {
+    <div class="text-center py-5" role="status">
+      <div class="spinner-border text-primary"></div>
+    </div>
+  }
+
+  @if (indicador.dashboard(); as datos) {
+    <div class="row g-3">
+      <div class="col-12 col-sm-6 col-xl">
+        <div class="stat-card c-azul">
+          <div class="stat-icon"><i class="bi bi-box-seam"></i></div>
+          <div>
+            <div class="stat-valor">{{ datos.total_productos | number }}</div>
+            <div class="stat-label">Productos</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl">
+        <div class="stat-card c-verde">
+          <div class="stat-icon"><i class="bi bi-arrow-down-circle"></i></div>
+          <div>
+            <div class="stat-valor">{{ datos.total_entradas_mes | number }}</div>
+            <div class="stat-label">Entradas del mes</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl">
+        <div class="stat-card c-rojo">
+          <div class="stat-icon"><i class="bi bi-arrow-up-circle"></i></div>
+          <div>
+            <div class="stat-valor">{{ datos.total_salidas_mes | number }}</div>
+            <div class="stat-label">Salidas del mes</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl">
+        <div class="stat-card c-cian">
+          <div class="stat-icon"><i class="bi bi-cash-coin"></i></div>
+          <div>
+            <div class="stat-valor">
+              {{ datos.valor_inventario | currency: 'PEN' : 'S/ ' }}
+            </div>
+            <div class="stat-label">Valor de inventario</div>
+          </div>
+        </div>
+      </div>
+      <div class="col-12 col-sm-6 col-xl">
+        <div class="stat-card c-ambar">
+          <div class="stat-icon"><i class="bi bi-exclamation-triangle"></i></div>
+          <div>
+            <div class="stat-valor">{{ datos.productos_stock_bajo | number }}</div>
+            <div class="stat-label">Con stock bajo</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="panel mt-4">
+      <div class="panel-head">
+        <span class="panel-titulo">
+          <i class="bi bi-exclamation-circle"></i>Productos con stock bajo
+        </span>
+        <span class="pill pill-rojo">{{ indicador.stockBajo().length }} en alerta</span>
+      </div>
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead>
+            <tr>
+              <th scope="col">Producto</th>
+              <th scope="col">Categoría</th>
+              <th scope="col" class="text-end">Stock actual</th>
+              <th scope="col" class="text-end">Stock mínimo</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of indicador.stockBajo(); track item.id_producto) {
+              <tr>
+                <td class="nombre">{{ item.nombre }}</td>
+                <td>
+                  <span class="pill pill-gris">{{ item.categoria }}</span>
+                </td>
+                <td class="text-end">
+                  <span class="pill pill-rojo">{{ item.stock_actual }}</span>
+                  <div class="nivel" title="Stock respecto al mínimo">
+                    <div
+                      class="nivel-barra"
+                      [style.width.%]="nivel(item.stock_actual, item.stock_minimo)"
+                    ></div>
+                  </div>
+                </td>
+                <td class="text-end">{{ item.stock_minimo }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="4" class="vacio">
+                  <i class="bi bi-check-circle"></i>
+                  <div>Todo en orden: no hay productos con stock bajo</div>
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  }
+</div>

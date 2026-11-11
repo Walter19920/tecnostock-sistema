@@ -2,6 +2,7 @@ import { Routes } from '@angular/router';
 
 import { AlmacenLayoutComponent } from './components/layout/almacen-layout.component';
 import { AdminLayoutComponent } from './components/layout/admin-layout.component';
+import { AlertasStockComponent } from './components/alertas/alertas-stock.component';
 import { CategoriasComponent } from './components/categorias/categorias.component';
 import { DashboardComponent } from './components/dashboard/dashboard.component';
 import { LoginComponent } from './components/login/login.component';
@@ -25,6 +26,7 @@ export const routes: Routes = [
       { path: 'dashboard', component: DashboardComponent, title: 'TecnoStock — Dashboard' },
       { path: 'productos', component: ProductosComponent, title: 'TecnoStock — Productos' },
       { path: 'categorias', component: CategoriasComponent, title: 'TecnoStock — Categorías' },
+      { path: 'alertas', component: AlertasStockComponent, title: 'TecnoStock — Alertas de Stock' },
       { path: 'movimientos', component: MovimientosComponent, title: 'TecnoStock — Movimientos' },
       { path: 'usuarios', component: UsuariosComponent, title: 'TecnoStock — Usuarios' },
     ],
