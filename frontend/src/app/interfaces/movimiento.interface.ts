@@ -7,8 +7,8 @@ export interface Movimiento {
   tipo: TipoMovimiento;
   producto: string;
   cantidad: number;
-  precio_unitario: number;
-  total: number;
+  stock_anterior: number;
+  stock_posterior: number;
   fecha: string;
   usuario: string;
   observacion: string | null;
@@ -18,7 +18,7 @@ export interface Movimiento {
 export interface EntradaCreate {
   id_producto: number;
   cantidad: number;
-  precio_compra: number;
+  precio_compra?: number;
   observacion?: string | null;
 }
 
@@ -26,7 +26,7 @@ export interface EntradaCreate {
 export interface SalidaCreate {
   id_producto: number;
   cantidad: number;
-  precio_venta: number;
+  precio_venta?: number;
   observacion?: string | null;
 }
 
@@ -36,4 +36,7 @@ export interface ParametrosMovimiento {
   tamanio_pagina?: number;
   tipo?: TipoMovimiento;
   id_producto?: number;
+  /** Rango de fechas (formato AAAA-MM-DD) — @fecha_inicio / @fecha_fin del SP. */
+  fecha_inicio?: string;
+  fecha_fin?: string;
 }

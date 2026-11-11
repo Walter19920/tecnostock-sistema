@@ -1,0 +1,33 @@
+<div
+  class="ts-toast-container"
+  aria-live="polite"
+  aria-atomic="true"
+>
+  @for (toast of notificaciones.toasts(); track toast.id) {
+    <div
+      class="toast show ts-toast align-items-center border-0 rounded-3 bg-white"
+      [class]="obtenerBorde(toast.tipo)"
+      role="alert"
+      aria-live="assertive"
+      aria-atomic="true"
+    >
+      <div class="d-flex p-2 align-items-start">
+        <div class="toast-icono p-1 flex-shrink-0 d-flex align-items-center justify-content-center">
+          <i class="bi fs-4" [class]="obtenerIcono(toast.tipo)"></i>
+        </div>
+        <div class="toast-body flex-grow-1 py-1 px-2">
+          @if (toast.titulo) {
+            <h6 class="fw-bold mb-1 text-dark fs-6">{{ toast.titulo }}</h6>
+          }
+          <div class="text-secondary small fw-medium">{{ toast.mensaje }}</div>
+        </div>
+        <button
+          type="button"
+          class="btn-close me-2 mt-2 shadow-none flex-shrink-0"
+          (click)="cerrar(toast.id)"
+          aria-label="Cerrar"
+        ></button>
+      </div>
+    </div>
+  }
+</div>

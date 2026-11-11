@@ -18,6 +18,8 @@ export class MovimientoService {
   private readonly http = inject(HttpClient);
 
   readonly movimientos = signal<Movimiento[]>([]);
+  readonly total = signal(0);
+  readonly totalPaginas = signal(0);
   readonly cargando = signal(false);
   readonly error = signal<string | null>(null);
 
@@ -34,6 +36,8 @@ export class MovimientoService {
         tap({
           next: (pagina) => {
             this.movimientos.set(pagina.items);
+            this.total.set(pagina.total_registros);
+            this.totalPaginas.set(pagina.total_paginas);
             this.cargando.set(false);
           },
           error: (err: HttpErrorResponse) => {
@@ -85,6 +89,12 @@ export class MovimientoService {
     }
     if (params.id_producto !== undefined) {
       httpParams = httpParams.set('id_producto', params.id_producto);
+    }
+    if (params.fecha_inicio) {
+      httpParams = httpParams.set('fecha_inicio', params.fecha_inicio);
+    }
+    if (params.fecha_fin) {
+      httpParams = httpParams.set('fecha_fin', params.fecha_fin);
     }
     return httpParams;
   }

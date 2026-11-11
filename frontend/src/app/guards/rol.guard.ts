@@ -19,15 +19,17 @@ export const sesionGuard: CanActivateFn = () => {
  * rol requerido por la ruta. Si no coincide, redirige a la vista propia
  * del rol activo (/admin o /almacen) para bloquear el acceso directo.
  */
-export const rolGuard = (rolRequerido: Rol): CanActivateFn => () => {
-  const auth = inject(AuthService);
-  const router = inject(Router);
+export const rolGuard =
+  (rolRequerido: Rol): CanActivateFn =>
+  () => {
+    const auth = inject(AuthService);
+    const router = inject(Router);
 
-  if (!auth.autenticado()) {
-    return router.createUrlTree(['/login']);
-  }
+    if (!auth.autenticado()) {
+      return router.createUrlTree(['/login']);
+    }
 
-  // Sesiones antiguas sin rol explícito se tratan como Administrador.
-  const rolActual = auth.rol() ?? ROL_ADMIN;
-  return rolActual === rolRequerido ? true : router.createUrlTree([auth.rutaInicio()]);
-};
+    // Sesiones antiguas sin rol explícito se tratan como Administrador.
+    const rolActual = auth.rol() ?? ROL_ADMIN;
+    return rolActual === rolRequerido ? true : router.createUrlTree([auth.rutaInicio()]);
+  };

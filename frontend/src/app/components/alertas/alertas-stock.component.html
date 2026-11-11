@@ -1,0 +1,175 @@
+<div class="container-fluid py-4 px-4">
+  <!-- CABECERA DE LA VISTA -->
+  <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-4">
+    <div>
+      <div class="d-flex align-items-center gap-2">
+        <h1 class="h3 fw-bold text-dark mb-0">Alertas de Stock Bajo</h1>
+        <span class="badge bg-danger bg-opacity-10 text-danger rounded-pill px-3 py-1">
+          {{ indicador.stockBajo().length }} en alerta
+        </span>
+      </div>
+      <p class="text-muted small mb-0 mt-1">
+        Productos con <code>stock_actual &le; stock_minimo</code> que requieren reposición
+      </p>
+    </div>
+
+    <div class="d-flex gap-2">
+      <button class="btn btn-outline-secondary btn-sm rounded-3" type="button" (click)="recargar()">
+        <i class="bi bi-arrow-clockwise me-1"></i>Actualizar
+      </button>
+      <button
+        class="btn btn-primary btn-sm rounded-3 d-inline-flex align-items-center gap-2"
+        type="button"
+        (click)="router.navigate(['/admin/movimientos'])"
+      >
+        <i class="bi bi-plus-lg"></i>
+        <span>Registrar entrada</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- KPI RESUMEN -->
+  <div class="row g-3 mb-4">
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-body py-3 px-4">
+          <div class="d-flex align-items-center gap-2 text-muted small mb-1">
+            <i class="bi bi-exclamation-triangle text-danger"></i>
+            <span>Productos en alerta</span>
+          </div>
+          <div class="h4 fw-bold text-dark mb-0">{{ indicador.stockBajo().length }}</div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-body py-3 px-4">
+          <div class="d-flex align-items-center gap-2 text-muted small mb-1">
+            <i class="bi bi-box-seam text-primary"></i>
+            <span>Productos activos</span>
+          </div>
+          <div class="h4 fw-bold text-dark mb-0">
+            {{ indicador.dashboard()?.total_productos ?? '—' }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-body py-3 px-4">
+          <div class="d-flex align-items-center gap-2 text-muted small mb-1">
+            <i class="bi bi-cart-x text-warning"></i>
+            <span>Salidas del mes</span>
+          </div>
+          <div class="h4 fw-bold text-dark mb-0">
+            {{ indicador.dashboard()?.total_salidas_mes ?? '—' }}
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="col-6 col-md-3">
+      <div class="card border-0 shadow-sm rounded-4 h-100">
+        <div class="card-body py-3 px-4">
+          <div class="d-flex align-items-center gap-2 text-muted small mb-1">
+            <i class="bi bi-cash-stack text-success"></i>
+            <span>Valor del inventario</span>
+          </div>
+          <div class="h4 fw-bold text-dark mb-0">
+            S/ {{ indicador.dashboard()?.valor_inventario ?? '—' }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- TABLA DE ALERTAS -->
+  <div class="card border-0 shadow-sm rounded-4 overflow-hidden">
+    <div
+      class="card-header bg-white border-0 px-4 py-3 d-flex justify-content-between align-items-center"
+    >
+      <span class="fw-bold text-dark">
+        <i class="bi bi-list-check me-2 text-danger"></i>Productos por debajo del stock mínimo
+      </span>
+    </div>
+
+    <div class="card-body p-0">
+      <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+          <thead class="bg-light border-bottom">
+            <tr>
+              <th scope="col" class="ps-4 py-3 text-muted text-uppercase fs-7">Producto</th>
+              <th scope="col" class="py-3 text-muted text-uppercase fs-7">Categoría</th>
+              <th scope="col" class="py-3 text-end text-muted text-uppercase fs-7">Stock actual</th>
+              <th scope="col" class="py-3 text-end text-muted text-uppercase fs-7">Stock mínimo</th>
+              <th scope="col" class="py-3 text-muted text-uppercase fs-7">Nivel</th>
+              <th scope="col" class="pe-4 py-3 text-center text-muted text-uppercase fs-7">
+                Estado
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (item of indicador.stockBajo(); track item.id_producto) {
+              <tr>
+                <td class="ps-4 fw-bold text-dark">{{ item.nombre }}</td>
+                <td>
+                  <span class="badge bg-light text-secondary border rounded-pill px-3 py-1">
+                    {{ item.categoria || 'Sin categoría' }}
+                  </span>
+                </td>
+                <td class="text-end font-monospace fw-bold text-danger">
+                  {{ item.stock_actual }}
+                </td>
+                <td class="text-end font-monospace text-secondary">{{ item.stock_minimo }}</td>
+                <td style="min-width: 160px">
+                  <div class="progress rounded-3" style="height: 8px">
+                    <div
+                      class="progress-bar"
+                      [class.bg-danger]="item.stock_actual <= 0"
+                      [class.bg-warning]="item.stock_actual > 0"
+                      role="progressbar"
+                      [style.width.%]="protegerNivel(item.stock_actual, item.stock_minimo)"
+                      [attr.aria-valuenow]="item.stock_actual"
+                      aria-valuemin="0"
+                      [attr.aria-valuemax]="item.stock_minimo"
+                    ></div>
+                  </div>
+                </td>
+                <td class="pe-4 text-center">
+                  <span
+                    class="badge rounded-pill px-3 py-1"
+                    [class.bg-danger]="item.stock_actual <= 0"
+                    [class.bg-warning-subtle]="item.stock_actual > 0"
+                    [class.text-warning-emphasis]="item.stock_actual > 0"
+                  >
+                    {{ estadoDe(item.stock_actual, item.stock_minimo) }}
+                  </span>
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="6" class="text-center text-muted py-5">
+                  @if (indicador.cargando()) {
+                    <div class="d-flex flex-column align-items-center gap-2">
+                      <div
+                        class="spinner-border text-primary spinner-border-sm"
+                        role="status"
+                      ></div>
+                      <span class="small">Verificando niveles de stock…</span>
+                    </div>
+                  } @else {
+                    <div class="d-flex flex-column align-items-center gap-2 py-3">
+                      <i class="bi bi-check-circle-fill fs-1 text-success"></i>
+                      <p class="mb-0 fw-medium">
+                        Todo en orden: ningún producto está por debajo del stock mínimo
+                      </p>
+                    </div>
+                  }
+                </td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>

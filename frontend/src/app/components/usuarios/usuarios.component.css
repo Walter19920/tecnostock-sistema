@@ -1,0 +1,16 @@
+.avatar-circulo {
+  width: 38px;
+  height: 38px;
+  font-size: 0.85rem;
+  letter-spacing: 0.5px;
+  flex-shrink: 0;
+}
+.bg-admin {
+  background: linear-gradient(135deg, #1e3a8a, #2563eb);
+}
+.bg-almacen {
+  background: linear-gradient(135deg, #0e7490, #06b6d4);
+}
+.fs-7 {
+  font-size: 0.75rem;
+}

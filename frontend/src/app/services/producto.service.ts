@@ -187,6 +187,16 @@ export class ProductoService {
     if (params.busqueda) {
       httpParams = httpParams.set('busqueda', params.busqueda);
     }
+    if (params.id_categoria !== undefined && params.id_categoria !== null) {
+      httpParams = httpParams.set('id_categoria', params.id_categoria);
+    }
+    // Enviar solo_activos = false para que la base de datos devuelva todos (incluidos inactivos)
+    if (params.solo_activos !== undefined) {
+      httpParams = httpParams.set('solo_activos', params.solo_activos);
+    } else {
+      // Si no se especifica, solicitamos false para ver el historial completo
+      httpParams = httpParams.set('solo_activos', 'false');
+    }
     return httpParams;
   }
 }
