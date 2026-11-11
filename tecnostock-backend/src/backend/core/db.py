@@ -22,7 +22,7 @@ def get_connection() -> pyodbc.Connection:
     """
     settings = get_settings()
     connection_string = (
-        f"DRIVER={{ODBC Driver 18 for SQL Server}};"
+        f"DRIVER={{{settings.DB_DRIVER}}};"
         f"SERVER={settings.DB_SERVER};"
         f"DATABASE={settings.DB_NOMBRE};"
         f"UID={settings.DB_USER};"

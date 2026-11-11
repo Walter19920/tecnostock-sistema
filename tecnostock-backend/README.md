@@ -18,12 +18,15 @@ src/backend/
 ├── schemas/       # Modelos Pydantic de entrada/salida (DTOs)
 └── core/          # Configuración de base de datos, CORS y seguridad
 
-Requisitos Previos
-Python 3.10+
+---
 
-uv (Administrador rápido de entornos y paquetes de Python)
+## Requisitos Previos
 
-Microsoft SQL Server (con ODBC Driver 17 o 18 for SQL Server)
+* **Python 3.10+**
+* **uv** (Administrador rápido de entornos y paquetes de Python)
+* **Microsoft SQL Server** (con ODBC Driver 17 o 18 for SQL Server instalado en el sistema)
+
+---
 
 
 Instalar dependencias con uv
@@ -32,16 +35,14 @@ Instalar dependencias con uv
   uv sync
 
 
-Para iniciar la API en modo de desarrollo
+Opcion estandar para iniciar la API en modo de desarrollo
 
 uv run uvicorn main:app --app-dir src/backend
 
 
-Credenciales de Prueba
+Opcion alternativa para iniciar con python devido a control de aplicaciones de windows
 
-Rol	           Username	  Contraseña
-Administrador	admin	  admin123
-
+python -m uvicorn main:app --app-dir src/backend
 
 
 

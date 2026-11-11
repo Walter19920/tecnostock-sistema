@@ -536,8 +536,18 @@ h1.h3 {
   flex-shrink: 0;
   white-space: nowrap;
 }
+/*
+ * Área de contenido del layout.
+ * `position: relative` la ancla como contenedor de capas absolutas.
+ * OJO: NO se le asigna `z-index`: crearía un stacking context y los modales
+ * (position: fixed, z-index 1055) quedarían atrapados por debajo de la
+ * topbar sticky (z-index 1020). Las capas inactivas ya no interfieren:
+ * el scrim sólo existe con el menú abierto y el sidebar cerrado sale del
+ * viewport con transform + pointer-events: none.
+ */
 .ts-contenido {
   flex: 1;
+  position: relative;
 }
 .ts-btn-menu,
 .ts-scrim {
@@ -554,15 +564,24 @@ h1.h3 {
     transform: translateX(-100%);
     transition: transform 0.25s ease;
     box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+    /* Cerrado y fuera del viewport: jamás debe interceptar clics. */
+    pointer-events: none;
   }
   .ts-sidebar.ts-abierto {
     transform: none;
+    pointer-events: auto;
   }
+  /*
+   * Capa de fondo del menú móvil.
+   * z-index 1025: por ENCIMA del contenido (auto) y de la topbar (1020),
+   * pero por DEBAJO del sidebar (1030) → los enlaces del menú siguen siendo
+   * clickeables mientras el menú está abierto.
+   */
   .ts-scrim {
     display: block;
     position: fixed;
     inset: 0;
-    z-index: 1035;
+    z-index: 1025;
     padding: 0;
     border: 0;
     background: rgba(15, 23, 42, 0.55);

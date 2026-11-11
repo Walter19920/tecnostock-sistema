@@ -1,5 +1,13 @@
-import { Component, effect, inject, signal } from '@angular/core';
-import { Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
+import { Component, DestroyRef, effect, inject, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import {
+  NavigationEnd,
+  Router,
+  RouterLink,
+  RouterLinkActive,
+  RouterOutlet,
+} from '@angular/router';
+import { filter } from 'rxjs';
 
 import { AuthService } from '../../services/auth.service';
 
@@ -16,8 +24,23 @@ import { AuthService } from '../../services/auth.service';
 export class AlmacenLayoutComponent {
   protected readonly auth = inject(AuthService);
   private readonly router = inject(Router);
+  private readonly destroyRef = inject(DestroyRef);
 
   protected readonly menuAbierto = signal(false);
+
+  constructor() {
+    /*
+     * Cierra el menú móvil en cada navegación. Si quedara abierto, el scrim
+     * (position: fixed a pantalla completa) permanecería en el DOM y
+     * bloquearía los clics de toda la vista.
+     */
+    this.router.events
+      .pipe(
+        filter((evento): evento is NavigationEnd => evento instanceof NavigationEnd),
+        takeUntilDestroyed(this.destroyRef),
+      )
+      .subscribe(() => this.cerrarMenu());
+  }
 
   /**
    * Sin sesión activa → redirige automáticamente a /login

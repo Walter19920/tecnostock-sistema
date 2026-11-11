@@ -42,3 +42,9 @@ app.include_router(indicador_router.router)
 def health_check() -> dict:
     """Endpoint de comprobación de estado de la API."""
     return {"status": "ok", "app": "TecnoStock API", "version": "1.0.0"}
+
+
+@app.get("/health", tags=["Health"], include_in_schema=False)
+def health_check_alias() -> dict:
+    """Alias de comprobación de estado para healthchecks externos (monitoring/pestañas)."""
+    return health_check()
