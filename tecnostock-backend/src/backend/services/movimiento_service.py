@@ -46,14 +46,11 @@ def _row_a_movimiento_out(
     # 4. Cantidad
     cant = int(r.get("cantidad") or (data_input.cantidad if data_input else 0))
 
-    # 5. Precio unitario (Del payload en inserts; 0.0 en listados del historial)
-    if data_input:
-        precio = float(getattr(data_input, "precio_compra", getattr(data_input, "precio_venta", 0.0)))
-    else:
-        precio = float(r.get("precio_unitario") or r.get("precio_compra") or r.get("precio_venta") or 0.0)
+    # 5. Stock Anterior (Obtenido desde la BD)
+    stock_ant = int(r.get("stock_anterior") or 0)
 
-    # 6. Total
-    tot = float(r.get("total") or (cant * precio))
+    # 6. Stock Posterior (Obtenido desde la BD)
+    stock_post = int(r.get("stock_posterior") or 0)
 
     # 7. Fecha
     fecha_val = r.get("fecha") or r.get("fecha_movimiento") or ""
@@ -76,8 +73,8 @@ def _row_a_movimiento_out(
         tipo=tipo_mov,
         producto=prod_nombre,
         cantidad=cant,
-        precio_unitario=precio,
-        total=tot,
+        stock_anterior=stock_ant,
+        stock_posterior=stock_post,
         fecha=fecha_str,
         usuario=usr_str,
         observacion=obs,

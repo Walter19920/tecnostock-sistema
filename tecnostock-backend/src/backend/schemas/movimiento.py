@@ -27,8 +27,8 @@ class MovimientoOut(BaseModel):
     tipo: str          # "ENTRADA" | "SALIDA"
     producto: str
     cantidad: int
-    precio_unitario: float
-    total: float
+    stock_anterior: int
+    stock_posterior: int
     fecha: str
     usuario: str
     observacion: str | None

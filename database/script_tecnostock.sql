@@ -3,7 +3,18 @@
 -- Motor: Microsoft SQL Server
 -- Proyecto: TecnoStock S.A.C.
 -- ============================================================================
+USE master;
+GO
 
+-- 1. Desconecta a todos los usuarios/backends conectados a la fuerza y elimina la BD
+IF EXISTS (SELECT name FROM sys.databases WHERE name = N'TecnoStockDB')
+BEGIN
+    ALTER DATABASE TecnoStockDB SET SINGLE_USER WITH ROLLBACK IMMEDIATE;
+    DROP DATABASE TecnoStockDB;
+END
+GO
+
+-- 2. Crea la base de datos desde cero
 CREATE DATABASE TecnoStockDB;
 GO
 
@@ -105,9 +116,8 @@ INSERT INTO TiposMovimiento (id_tipo_movimiento, nombre) VALUES
 (1, 'ENTRADA'),
 (2, 'SALIDA');
 
--- Usuario semilla (Contraseña: admin123)
 INSERT INTO Usuarios (username, password_hash, nombre_completo, rol, activo) VALUES
-('admin', '$2b$12$EixZaYVK1fsbw1ZfbX3OXePaWxn96p36WQoeg6Lruj3vjPGga31lW', 'Administrador General', 'ADMIN', 1);
+('admin', '$2b$12$e87.16Z2p60ER.zY/W640.8r6vH/5XQ0L/S7M.LgM5F5XkK.q3eWG', 'Administrador General', 'ADMIN', 1);
 
 -- Categorías iniciales
 INSERT INTO Categorias (nombre, descripcion, activo) VALUES
@@ -276,7 +286,7 @@ BEGIN
     WHERE (@busqueda IS NULL OR p.codigo LIKE '%' + @busqueda + '%' OR p.nombre LIKE '%' + @busqueda + '%')
       AND (@id_categoria IS NULL OR @id_categoria = 0 OR p.id_categoria = @id_categoria)
       AND (@activo IS NULL OR p.activo = @activo)
-    ORDER BY p.id_producto DESC
+    ORDER BY p.id_producto ASC
     OFFSET @offset ROWS
     FETCH NEXT @tamanio_pagina ROWS ONLY;
 END;
@@ -492,9 +502,34 @@ AS
 BEGIN
     SET NOCOUNT ON;
     SELECT 
-        (SELECT COUNT(*) FROM Productos WHERE activo = 1) AS total_productos_activos,
-        (SELECT COUNT(*) FROM Productos WHERE activo = 1 AND stock_actual <= stock_minimo) AS total_stock_bajo,
-        ISNULL((SELECT SUM(stock_actual * precio_compra) FROM Productos WHERE activo = 1), 0) AS valor_referencial_inventario;
+        -- 1. Nombre esperado por FastAPI: total_productos
+        (SELECT COUNT(*) 
+         FROM Productos 
+         WHERE activo = 1) AS total_productos,
+
+        -- 2. Nombre esperado por FastAPI: total_entradas_mes
+        (SELECT ISNULL(COUNT(*), 0) 
+         FROM MovimientosInventario 
+         WHERE id_tipo_movimiento = 1 
+           AND MONTH(fecha) = MONTH(GETDATE()) 
+           AND YEAR(fecha) = YEAR(GETDATE())) AS total_entradas_mes,
+
+        -- 3. Nombre esperado por FastAPI: total_salidas_mes
+        (SELECT ISNULL(COUNT(*), 0) 
+         FROM MovimientosInventario 
+         WHERE id_tipo_movimiento = 2 
+           AND MONTH(fecha) = MONTH(GETDATE()) 
+           AND YEAR(fecha) = YEAR(GETDATE())) AS total_salidas_mes,
+
+        -- 4. Nombre esperado por FastAPI: valor_inventario
+        ISNULL((SELECT SUM(stock_actual * precio_compra) 
+                FROM Productos 
+                WHERE activo = 1), 0) AS valor_inventario,
+
+        -- 5. Nombre esperado por FastAPI: productos_stock_bajo
+        (SELECT COUNT(*) 
+         FROM Productos 
+         WHERE activo = 1 AND stock_actual <= stock_minimo) AS productos_stock_bajo;
 END;
 GO
 
@@ -558,8 +593,208 @@ GO
 
 
 
+-- ============================================================================
+-- PROCEDIMIENTOS ALMACENADOS: GESTIÓN DE USUARIOS
+-- ============================================================================
+
+-- 1. Registrar un nuevo usuario (ADMIN o ALMACENERO)
+CREATE OR ALTER PROCEDURE sp_RegistrarUsuario
+    @username VARCHAR(50),
+    @password_hash VARCHAR(255),
+    @nombre_completo VARCHAR(100),
+    @rol VARCHAR(20) = 'ALMACENERO'
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        -- Validar si el username ya existe
+        IF EXISTS (SELECT 1 FROM Usuarios WHERE username = @username)
+            THROW 50011, 'El nombre de usuario ya existe.', 1;
+
+        -- Validar rol permitido
+        IF @rol NOT IN ('ADMIN', 'ALMACENERO')
+            THROW 50012, 'El rol especificado no es válido.', 1;
+
+        INSERT INTO Usuarios (username, password_hash, nombre_completo, rol, activo)
+        VALUES (@username, @password_hash, @nombre_completo, @rol, 1);
+
+        SELECT SCOPE_IDENTITY() AS id_usuario;
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END;
+GO
+
+-- 2. Listar todos los usuarios
+CREATE OR ALTER PROCEDURE sp_ListarUsuarios
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        id_usuario, 
+        username, 
+        nombre_completo, 
+        rol, 
+        activo, 
+        fecha_creacion
+    FROM Usuarios
+    ORDER BY id_usuario ASC;
+END;
+GO
+
+
+
+
+
+
+
+-- ============================================================================
+-- PROCEDIMIENTO ALMACENADO: CAMBIAR ESTADO DE USUARIO (ACTIVAR / DESACTIVAR)
+-- ============================================================================
+CREATE OR ALTER PROCEDURE sp_CambiarEstadoUsuario
+    @id_usuario INT,
+    @activo BIT
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE id_usuario = @id_usuario)
+            THROW 50013, 'El usuario no existe.', 1;
+
+        UPDATE Usuarios
+        SET activo = @activo
+        WHERE id_usuario = @id_usuario;
+
+        SELECT @id_usuario AS id_usuario, @activo AS nuevo_estado;
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END;
+
+GO
+-- ============================================================================
+-- VERIFICACIÓN DEL AUTENTICADOR (Solo usuarios activos)
+-- ============================================================================
+CREATE OR ALTER PROCEDURE sp_ObtenerUsuarioPorUsername
+    @username VARCHAR(50)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    SELECT 
+        id_usuario, username, password_hash, nombre_completo, rol, activo
+    FROM Usuarios
+    WHERE username = @username; 
+END;
+GO
+
+
+-- ============================================================================
+-- PROCEDIMIENTO ALMACENADO: CAMBIAR CONTRASEÑA DE USUARIO 
+-- ============================================================================
+CREATE OR ALTER PROCEDURE sp_CambiarPasswordUsuario
+    @id_usuario INT,
+    @nuevo_password_hash VARCHAR(255)
+AS
+BEGIN
+    SET NOCOUNT ON;
+    BEGIN TRY
+        IF NOT EXISTS (SELECT 1 FROM Usuarios WHERE id_usuario = @id_usuario)
+            THROW 50014, 'El usuario no existe.', 1;
+
+        UPDATE Usuarios
+        SET password_hash = @nuevo_password_hash
+        WHERE id_usuario = @id_usuario;
+
+        SELECT @id_usuario AS id_usuario, 'Contraseña actualizada correctamente' AS mensaje;
+    END TRY
+    BEGIN CATCH
+        THROW;
+    END CATCH
+END;
+GO
+
 UPDATE Usuarios 
-SET password_hash = '240be518fabd2724ddb6f04eeb1da5967448d7e831c08c8fa822809f74c720a9'
+SET password_hash = '$2b$12$Fuac7.JdHNLI3eDmNemBbuxpnr4dRdqfV8YSOI/sC6JcAOM0nFdde'
 WHERE username = 'admin';
 GO
 
+
+
+
+
+
+----- Consultar entrada y salida
+SELECT 
+    m.id_movimiento,
+    m.fecha AS fecha_y_hora,
+    p.nombre AS producto,
+    tm.nombre AS tipo_movimiento,
+    m.cantidad,
+    m.stock_anterior,
+    m.stock_posterior,
+    u.id_usuario,
+    ISNULL(u.username, 'Sin usuario') AS registrado_por,
+    ISNULL(u.nombre_completo, 'Sin asignar') AS nombre_usuario,
+    m.motivo
+FROM MovimientosInventario m
+INNER JOIN Productos p ON m.id_producto = p.id_producto
+INNER JOIN TiposMovimiento tm ON m.id_tipo_movimiento = tm.id_tipo_movimiento
+LEFT JOIN Usuarios u ON m.id_usuario = u.id_usuario
+ORDER BY m.fecha DESC, m.id_movimiento DESC;
+GO
+
+
+---- Consulta de usuarios (estado)
+USE TecnoStockDB;
+GO
+
+SELECT 
+    id_usuario,
+    username,
+    nombre_completo,
+    rol,
+    activo,
+    CASE 
+        WHEN activo = 1 THEN 'Activo'
+        ELSE 'Inactivo'
+    END AS estado
+FROM Usuarios
+ORDER BY id_usuario ASC;
+
+
+
+-- A. Ejecución directa del Stored Procedure del Dashboard
+EXEC sp_ObtenerIndicadoresDashboard;
+
+-- B. Desglose del valor del inventario por producto (Stock Actual * Precio Compra)
+SELECT 
+    p.codigo,
+    p.nombre,
+    c.nombre AS categoria,
+    p.stock_actual,
+    p.precio_compra,
+    (p.stock_actual * p.precio_compra) AS valor_referencial_producto
+FROM Productos p
+INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+WHERE p.activo = 1
+ORDER BY valor_referencial_producto DESC;
+
+-- A. Productos con stock igual o inferior al mínimo
+SELECT 
+    p.codigo,
+    p.nombre,
+    c.nombre AS categoria,
+    p.stock_actual,
+    p.stock_minimo,
+    (p.stock_minimo - p.stock_actual) AS unidades_deficitarias,
+    CASE 
+        WHEN p.stock_actual = 0 THEN 'AGOTADO'
+        WHEN p.stock_actual <= p.stock_minimo THEN 'STOCK BAJO'
+        ELSE 'NORMAL'
+    END AS nivel_alerta
+FROM Productos p
+INNER JOIN Categorias c ON p.id_categoria = c.id_categoria
+WHERE p.activo = 1 AND p.stock_actual <= p.stock_minimo
+ORDER BY p.stock_actual ASC;

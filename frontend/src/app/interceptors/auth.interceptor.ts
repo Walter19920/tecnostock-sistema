@@ -1,15 +1,19 @@
 import { HttpInterceptorFn } from '@angular/common/http';
-
 import { CLAVE_TOKEN } from '../services/auth.service';
-
-const API_URL = 'http://localhost:8000';
+import { environment } from '../../environments/environment';
 
 /**
- * Adjunta `Authorization: Bearer <token>` a toda petición saliente hacia la API
- * cuando existe un token guardado en localStorage.
+ * Adjunta `Authorization: Bearer <token>` a toda petición saliente hacia la API.
  */
 export const authInterceptor: HttpInterceptorFn = (req, next) => {
-  if (!req.url.startsWith(API_URL)) {
+  const apiUrl = environment.apiUrl;
+
+  // Verifica si la petición va hacia el backend (sea 127.0.0.1 o localhost)
+  const esPeticionApi = req.url.startsWith(apiUrl) || 
+                        req.url.includes('127.0.0.1:8000') || 
+                        req.url.includes('localhost:8000');
+
+  if (!esPeticionApi) {
     return next(req);
   }
 
@@ -18,7 +22,12 @@ export const authInterceptor: HttpInterceptorFn = (req, next) => {
     return next(req);
   }
 
+  // Adjunta el token JWT en las cabeceras
   return next(
-    req.clone({ setHeaders: { Authorization: `Bearer ${token}` } }),
+    req.clone({ 
+      setHeaders: { 
+        Authorization: `Bearer ${token}` 
+      } 
+    })
   );
 };

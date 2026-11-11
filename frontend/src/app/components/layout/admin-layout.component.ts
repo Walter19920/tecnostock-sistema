@@ -52,7 +52,7 @@ import { AuthService } from '../../services/auth.service';
 
           <div class="ts-seccion">Operaciones</div>
           <a routerLink="/admin/movimientos" routerLinkActive="active" (click)="cerrarMenu()">
-            <i class="bi bi-arrow-left-right"></i><span>Movimientos</span>
+            <i class="bi bi-arrow-left-right"></i><span>Entradas y salidas</span>
           </a>
 
           <div class="ts-seccion">Administración</div>

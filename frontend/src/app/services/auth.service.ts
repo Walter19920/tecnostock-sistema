@@ -153,42 +153,36 @@ export class AuthService {
    * se activa el fallback de autenticación local.
    */
   login(usuario: string, password: string): Observable<AuthResponse> {
-    this.cargando.set(true);
-    this.error.set(null);
+  this.cargando.set(false);
+  this.error.set(null);
 
-    const body = new HttpParams().set('username', usuario).set('password', password);
+  const body = new HttpParams().set('username', usuario).set('password', password);
 
-    return this.http
-      .post<AuthResponse>(`${API_URL}/auth/login`, body, {
-        headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
-      })
-      .pipe(
-        tap({
-          next: (respuesta) => {
-            const rolResuelto = normalizarRol(respuesta.usuario?.rol) ?? ROL_ADMIN;
-            localStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
-            localStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.usuario));
-            localStorage.setItem(CLAVE_ROL, rolResuelto);
-            this.token.set(respuesta.access_token);
-            this.usuario.set(respuesta.usuario);
-            this.rol.set(rolResuelto);
-            this.cargando.set(false);
-          },
-        }),
-        catchError((err: HttpErrorResponse) => {
-          // Fallback para Almaceneros de prueba (error 400, 401, 404 o conexión 0)
-          const fallback = this.esUsuarioAlmaceneroSimulado(usuario);
-          if ([0, 400, 401, 404].includes(err.status) && fallback.esAlmacenero) {
-            const respuesta = this.autenticarLocalmente(usuario, fallback.nombre, ROL_ALMACENERO);
-            return of(respuesta);
-          }
-
+  return this.http
+    .post<AuthResponse>(`${API_URL}/auth/login`, body, {
+      headers: new HttpHeaders({ 'Content-Type': 'application/x-www-form-urlencoded' }),
+    })
+    .pipe(
+      tap({
+        next: (respuesta) => {
+          const rolResuelto = normalizarRol(respuesta.usuario?.rol) ?? ROL_ADMIN;
+          localStorage.setItem(CLAVE_TOKEN, respuesta.access_token);
+          localStorage.setItem(CLAVE_USUARIO, JSON.stringify(respuesta.usuario));
+          localStorage.setItem(CLAVE_ROL, rolResuelto);
+          this.token.set(respuesta.access_token);
+          this.usuario.set(respuesta.usuario);
+          this.rol.set(rolResuelto);
           this.cargando.set(false);
-          this.error.set(this.mensajeError(err));
-          return throwError(() => err);
-        }),
-      );
-  }
+        },
+      }),
+      catchError((err: HttpErrorResponse) => {
+        // Maneja todos los errores reales enviados por FastAPI (401, 403, 500, etc.)
+        this.cargando.set(false);
+        this.error.set(this.mensajeError(err));
+        return throwError(() => err);
+      })
+    );
+}
 
   /** Cierra la sesión y limpia localStorage. */
   logout(): void {
@@ -208,21 +202,26 @@ export class AuthService {
 
   /** Traduce la respuesta HTTP de error a un mensaje amigable para el login. */
   private mensajeError(err: HttpErrorResponse): string {
-    if (err.status === 0) {
-      return `No se pudo conectar con el backend (${environment.apiUrl}). Verifica que esté en ejecución.`;
-    }
-    const detalle = err.error?.detail;
-    if (typeof detalle === 'string' && detalle.trim()) {
-      return detalle; // 401 "Credenciales incorrectas", 500 con detalle, etc.
-    }
-    if (err.status === 401) {
-      return 'Usuario o contraseña incorrectos.';
-    }
-    if (err.status === 422) {
-      return 'Datos de inicio de sesión inválidos.';
-    }
-    return `Error del servidor (${err.status}). Inténtalo de nuevo.`;
+  if (err.status === 0) {
+    return `No se pudo conectar con el backend (${environment.apiUrl}). Verifica que esté en ejecución.`;
   }
+  
+  const detalle = err.error?.detail;
+  if (typeof detalle === 'string' && detalle.trim()) {
+    return detalle; // Retorna la respuesta exacta de FastAPI (e.g. "El usuario se encuentra inactivo...")
+  }
+
+  if (err.status === 401) {
+    return 'Usuario o contraseña incorrectos.';
+  }
+  if (err.status === 403) {
+    return 'El usuario se encuentra inactivo. Contacte al administrador.';
+  }
+  if (err.status === 422) {
+    return 'Datos de inicio de sesión inválidos.';
+  }
+  return `Error del servidor (${err.status}). Inténtalo de nuevo.`;
+}
 
   /** Lee el token; migra la clave antigua `tecnostock_token` si existía. */
   private leerToken(): string | null {
@@ -259,5 +258,11 @@ export class AuthService {
     }
     // Sesiones antiguas: se toma el rol del usuario guardado en localStorage.
     return normalizarRol(this.leerUsuario()?.rol);
+  }
+  /**
+ * Cambia el estado de un usuario (Activo/Inactivo) consumiendo la API.
+ */
+  cambiarEstadoUsuario(idUsuario: number, activo: boolean): Observable<any> {
+    return this.http.patch(`${API_URL}/auth/usuarios/${idUsuario}/estado?activo=${activo}`, {});
   }
 }
